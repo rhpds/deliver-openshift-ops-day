@@ -53,7 +53,7 @@ spec:
     platform: "ocp"
     topology: "shared-cluster"
     cloud_provider: cnv
-    max_concurrent_users: null # required if topology = shared-cluster
+    max_concurrent_users: 100
 
     # --- OCP-specific fields (only when platform = ocp) ---
     ocp_version: "4.20"
