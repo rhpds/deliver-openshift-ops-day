@@ -1,0 +1,13 @@
+site_name: Deliver the OpenShift Ops Day Roadshow
+docs_dir: publishing-house/spec
+nav:
+- Home: index.md
+- Design Spec: design.md
+- Modules:
+  - Module 1 - What Is The Roadshow: modules/module-01-what-is-the-roadshow.md
+  - Module 2 - Positioning And Scheduling: modules/module-02-positioning-and-scheduling.md
+  - Module 3 - How To Deliver A Module: modules/module-03-how-to-deliver-a-module.md
+  - Module 4 - Application Management: modules/module-04-application-management.md
+  - Module 5 - Observability: modules/module-05-observability.md
+plugins:
+- techdocs-core
