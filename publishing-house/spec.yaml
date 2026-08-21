@@ -25,12 +25,9 @@ spec:
     - "Describe the OpenShift Ops Day Roadshow's structure, value propositions, and delivery formats"
     - "Identify how to position the Roadshow for different customer scenarios (single-day, regional event, individual sessions)"
     - "Demonstrate the delivery workflow for a Roadshow module including supporting materials, live walkthrough, student work time, and reviews"
-    - "Verify an OpenShift cluster installation and inspect cluster health"
-    - "Deploy an application on OpenShift and validate its components"
-    - "Troubleshoot a failing application deployment using OpenShift diagnostic tools"
-    - "Monitor cluster and application metrics using Prometheus and Thanos"
-    - "Analyze application logs using ClusterLogForwarder (Vector) and Loki"
-    - "Explore distributed traces using OpenTelemetry and Tempo"
+    - "Describe the high-level background and purpose of all 18 modules in the workshop"
+    - "Demonstrate delivery of application management and troubleshooting content including cluster verification, application deployment, and debugging"
+    - "Demonstrate delivery of observability content including metrics with Prometheus, logs with Loki, and traces with OpenTelemetry"
   modules:
     - id: module-01
       title: "What Is the OpenShift Roadshow?"

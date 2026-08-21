@@ -22,12 +22,9 @@ This lab prepares Red Hat field teams to deliver the OpenShift Ops Day Roadshow 
 1. Describe the OpenShift Ops Day Roadshow's structure, value propositions, and delivery formats
 2. Identify how to position the Roadshow for different customer scenarios (single-day, regional event, individual sessions)
 3. Demonstrate the delivery workflow for a Roadshow module including supporting materials, live walkthrough, student work time, and reviews
-4. Verify an OpenShift cluster installation and inspect cluster health
-5. Deploy an application on OpenShift and validate its components
-6. Troubleshoot a failing application deployment using OpenShift diagnostic tools
-7. Monitor cluster and application metrics using Prometheus and Thanos
-8. Analyze application logs using ClusterLogForwarder (Vector) and Loki
-9. Explore distributed traces using OpenTelemetry and Tempo
+4. Describe the high-level background and purpose of all 18 modules in the workshop
+5. Demonstrate delivery of application management and troubleshooting content including cluster verification, application deployment, and debugging
+6. Demonstrate delivery of observability content including metrics with Prometheus, logs with Loki, and traces with OpenTelemetry
 
 ## Content Type
 
