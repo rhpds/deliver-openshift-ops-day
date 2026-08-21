@@ -16,8 +16,8 @@ project:
   automation_type: "ansible"
   description: "An overview of the OpenShift Ops Day Roadshow workshop including its features and how to deliver it and an opportunity to try important modules."
   # content_reviewer_email and infra_reviewer_email are assigned by the RHDP team — not set by the author
-  jira_ticket: ""
-  workflow_id: ""
+  jira_ticket: "RHDPCD-1196"
+  workflow_id: "5498fbed-df06-45ee-8e4c-21142a5d5540"
 
 spec:
   title: ""
