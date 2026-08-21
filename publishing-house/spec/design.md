@@ -1,89 +1,85 @@
-# [Project Title]
-
-<!-- This file is the design document for your lab or demo. -->
-<!-- Fill in each section below, or run /rhdp-publishing-house to have the intake skill help. -->
-<!-- Sections marked with [brackets] are placeholders — replace with real content. -->
-<!-- The validation gate checks for all required sections before submission. -->
+# Deliver the OpenShift Ops Day Roadshow
 
 ## Overview
 
-[2-3 sentences on what this lab or demo is and why it exists. Then a direct description of what participants will do — specific enough that someone reading this section immediately understands the content without interpretation. No flowery language. Example: "Participants will deploy a 3-tier application on OpenShift, configure autoscaling, and troubleshoot a simulated pod failure."]
+This lab prepares Red Hat field teams to deliver the OpenShift Ops Day Roadshow workshop to customers. Participants learn what the Roadshow is, how to position and schedule it, and how to deliver individual modules effectively. They then complete hands-on exercises from the Application Management and Observability modules to build familiarity with the content they will be presenting.
 
 ## Target Audience
 
-- **Role:** [Data scientists, platform engineers, developers, etc.]
-- **Experience level:** [Beginner, intermediate, or advanced]
-- **What they already know:** [Existing skills and knowledge]
-- **What they don't know:** [Skills this lab teaches]
+- **Role:** Solution architects, specialist solution architects, adoption architects, technical account managers, sales specialists
+- **Experience level:** Intermediate
+- **What they already know:** Core OpenShift concepts (clusters, projects, deployments), basic CLI usage, familiarity with the Red Hat Demo Platform
+- **What they don't know:** How the Roadshow is structured, how to deliver individual modules, and the specifics of the hands-on lab environment
 
 ## Prerequisites
 
-- [What the learner must know or have completed before starting]
-- [Can the lab validate these automatically? Yes/No — brief explanation]
-
-<!-- If no prerequisites, write "None" -->
+- Active access to the Red Hat Demo Platform (RHDP)
+- Basic familiarity with OpenShift CLI (`oc`) and the web console
+- Can the lab validate these automatically? No — trust-based
 
 ## Learning Objectives
 
-1. [Action verb] [specific, measurable outcome]
-2. [Action verb] [specific, measurable outcome]
-3. [Action verb] [specific, measurable outcome]
-
-<!-- Scale to duration: up to 3 objectives per 45 min of content. Start with action verbs: Configure, Deploy, Create, Implement, Troubleshoot, Monitor, Scale. Each should be testable. NOT: Understand, Learn, Know. -->
+1. Describe the OpenShift Ops Day Roadshow's structure, value propositions, and delivery formats
+2. Identify how to position the Roadshow for different customer scenarios (single-day, regional event, individual sessions)
+3. Demonstrate the delivery workflow for a Roadshow module including supporting materials, live walkthrough, student work time, and reviews
+4. Verify an OpenShift cluster installation and inspect cluster health
+5. Deploy an application on OpenShift and validate its components
+6. Troubleshoot a failing application deployment using OpenShift diagnostic tools
+7. Monitor cluster and application metrics using Prometheus and Thanos
+8. Analyze application logs using ClusterLogForwarder (Vector) and Loki
+9. Explore distributed traces using OpenTelemetry and Tempo
 
 ## Content Type
 
-[Lab (hands-on) or Demo (presenter-led)]
+Lab (hands-on)
 
 ## Products & Technologies
 
-- [Official Red Hat product name with version if relevant]
-- [Additional products/technologies]
-
-<!-- Use official names: "Red Hat OpenShift", not "OpenShift". List upstream projects separately. -->
+- Red Hat OpenShift Container Platform
+- Prometheus (bundled with OpenShift monitoring stack)
+- Thanos (bundled with OpenShift monitoring stack)
+- Loki (OpenShift Logging)
+- Vector (ClusterLogForwarder)
+- OpenTelemetry (OpenShift distributed tracing)
+- Tempo (OpenShift distributed tracing)
 
 ## Module Map
 
 | Module | Title | Duration |
 |--------|-------|----------|
-| 1 | [Module title] | [XX min] |
-| 2 | [Module title] | [XX min] |
-| — | **Total hands-on** | **[X hours]** |
-| — | Intro / presentation | [~XX min] |
-| — | **Total lab** | **[~X hours]** |
-
-<!-- Each module 10-30 min. Total: lab 1-4 hours, demo 15-45 min. Modules should build on each other. -->
+| 1 | What Is the OpenShift Roadshow? | 15 min |
+| 2 | Positioning and Scheduling the Roadshow | 15 min |
+| 3 | How to Deliver a Module | 30 min |
+| 4 | Application Management Hands-On | 30 min |
+| 5 | Observability Hands-On | 30 min |
+| — | **Total hands-on** | **1 hour** |
+| — | Intro / presentation | **~1 hour** |
+| — | **Total lab** | **~2 hours** |
 
 ## Difficulty Level
 
-[Beginner, Intermediate, or Advanced]
+Intermediate
 
 ## Environment
 
-**Learner view:** [What exists when the lab starts — pre-deployed resources, what participants see and interact with. Be specific about cluster details.]
+**Learner view:** An OpenShift cluster with pre-deployed sample applications and configured monitoring stack (Prometheus, Thanos, Loki, Tempo, OpenTelemetry Collector). Participants access the cluster via the web console and CLI. Roadshow supporting materials (slide decks, presenter notes) are available through the Showroom interface.
 
-**Automation needed:** [Yes/No]
+**Automation needed:** Yes
 
-[If yes, list what automation must provision — operators, per-user resources, sample apps, data sets.]
+- OpenShift cluster with monitoring stack enabled
+- Loki, Tempo, and OpenTelemetry operators installed and configured
+- Sample application deployed for troubleshooting exercises
+- Sample application instrumented for distributed tracing
+- Pre-configured dashboards and alerts for observability module
 
 ## Infrastructure Requirements
 
-- **Cloud provider:** [CNV (default), AWS, or Troshka (bare-metal/nested virt)]
-- **Cluster type:** [Multinode or SNO (Single Node OpenShift)]
-- **OCP version:** [e.g. 4.20 — minimum 4.20]
-- **Topology:** [Shared cluster, per-student, or CNV pool]
-- **Sizing:** [Node types and counts with resources — e.g., "3 control plane (16 CPU, 64GB RAM), 6 workers (8 CPU, 32GB RAM, 100GB disk)"]
-- **Automation approach:** [Ansible, GitOps (Helm + ArgoCD), or combo]
-- **AI/MaaS:** [None, MaaS (open-source model), MaaS (frontier model), or dedicated GPU — include justification if not "none"]
-- **External services:** [Named services — e.g., github.com, registry.access.redhat.com — or "None"]
-- **AAP version:** [e.g. 2.5 — only if AAP is in products; omit otherwise]
-- **Non-GA products:** [Product name + version, with access plan — or "None (all products are GA)"]
-
-<!-- Not all fields must be known at intake. "TBD, estimating ~X" is fine. -->
-
-## Assessment Strategy (Optional)
-
-<!-- Optional — skip this section for demos or classic labs without verification. -->
-<!-- Relevant for Zero-Touch labs with solve/validate buttons or labs with automated checks. -->
-
-[If applicable: how will we know the learner successfully completed each module? Per module: verification script, solve/validate button, visible result in the UI, or automated check.]
+- **Cloud provider:** TBD — confirmed in infrastructure phase
+- **Cluster type:** TBD — confirmed in infrastructure phase
+- **OCP version:** TBD — confirmed in infrastructure phase
+- **Topology:** TBD — confirmed in infrastructure phase
+- **Sizing:** TBD — confirmed in infrastructure phase
+- **Automation approach:** TBD — confirmed in infrastructure phase
+- **AI/MaaS:** None
+- **External services:** TBD — confirmed in infrastructure phase
+- **Non-GA products:** None (all products are GA)

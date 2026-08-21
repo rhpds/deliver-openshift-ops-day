@@ -21,8 +21,37 @@ project:
 
 spec:
   title: "Deliver the OpenShift Ops Day Roadshow"
-  learning_objectives: []
-  modules: []              # [{id, title, duration_min}] — written by intake Phase 4; id is stable (e.g. module-01)
+  learning_objectives:
+    - "Describe the OpenShift Ops Day Roadshow's structure, value propositions, and delivery formats"
+    - "Identify how to position the Roadshow for different customer scenarios (single-day, regional event, individual sessions)"
+    - "Demonstrate the delivery workflow for a Roadshow module including supporting materials, live walkthrough, student work time, and reviews"
+    - "Verify an OpenShift cluster installation and inspect cluster health"
+    - "Deploy an application on OpenShift and validate its components"
+    - "Troubleshoot a failing application deployment using OpenShift diagnostic tools"
+    - "Monitor cluster and application metrics using Prometheus and Thanos"
+    - "Analyze application logs using ClusterLogForwarder (Vector) and Loki"
+    - "Explore distributed traces using OpenTelemetry and Tempo"
+  modules:
+    - id: module-01
+      title: "What Is the OpenShift Roadshow?"
+      duration_min: 15
+      status: not_started
+    - id: module-02
+      title: "Positioning and Scheduling the Roadshow"
+      duration_min: 15
+      status: not_started
+    - id: module-03
+      title: "How to Deliver a Module"
+      duration_min: 30
+      status: not_started
+    - id: module-04
+      title: "Application Management Hands-On"
+      duration_min: 30
+      status: not_started
+    - id: module-05
+      title: "Observability Hands-On"
+      duration_min: 30
+      status: not_started
   environment:
     platform: ""               # ocp | rhel-vms — determines which sizing fields apply
     topology: ""               # shared-cluster | per-student | cnv-pool
@@ -79,11 +108,21 @@ tracking:
 approval_checklist:
 
   content:
-    prerequisites_verifiable: null
+    prerequisites_verifiable: false
     assessment_strategy: ""
     catalog_gap: ""
-    design_overview: ""
-    module_summaries: []
+    design_overview: "Prepares Red Hat field teams to deliver the OpenShift Ops Day Roadshow by covering the workshop structure, positioning, and delivery techniques, followed by hands-on exercises in application management and observability."
+    module_summaries:
+      - title: "What Is the OpenShift Roadshow?"
+        overview: "Overview of the Roadshow's structure, content modules, and value propositions for customers."
+      - title: "Positioning and Scheduling the Roadshow"
+        overview: "How to position the Roadshow for different customer scenarios and schedule it on RHDP."
+      - title: "How to Deliver a Module"
+        overview: "The delivery workflow: supporting materials, live walkthrough, student work time, and reviews."
+      - title: "Application Management Hands-On"
+        overview: "Hands-on exercises verifying cluster health, deploying an application, and troubleshooting failures."
+      - title: "Observability Hands-On"
+        overview: "Hands-on exercises with Prometheus metrics, Loki logs, and OpenTelemetry/Tempo traces."
     rcars_overlap_pct: null
     rcars_top_matches: []
     rejections: []
