@@ -1,0 +1,35 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: deliver-openshift-ops-day
+  title: deliver-openshift-ops-day
+  description: An overview of the OpenShift Ops Day Roadshow workshop including
+    its features and how to deliver it and an opportunity to try important
+    modules.
+  annotations:
+    ph.rhdp.io/content-type: lab
+    ph.rhdp.io/deployment-mode: rhdp_published
+    ph.rhdp.io/github-user: joshgav
+    ph.rhdp.io/owner: jgavant@redhat.com
+    backstage.io/techdocs-ref: dir:.
+    github.com/project-slug: rhpds/deliver-openshift-ops-day
+    ph.rhdp.io/created-at: 2026-08-21T16:44:17.674Z
+  tags:
+    - publishing-house
+    - lab
+    - rhdp-published
+  links:
+    - url: https://github.com/rhpds/deliver-openshift-ops-day
+      title: Repository
+      icon: github
+    - url: https://devspaces.apps.ocpv-infra02.wdc07.infra.demo.redhat.com#https://github.com/rhpds/deliver-openshift-ops-day
+      title: Open in DevSpaces
+      icon: catalog
+    - url: https://central-api-publishing-house.apps.ocpv-infra02.wdc07.infra.demo.redhat.com
+      title: Central
+      icon: dashboard
+spec:
+  type: content
+  lifecycle: experimental
+  owner: rhdp-team
+  system: publishing-house
