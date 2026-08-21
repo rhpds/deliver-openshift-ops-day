@@ -107,7 +107,7 @@ approval_checklist:
   content:
     prerequisites_verifiable: false
     assessment_strategy: ""
-    catalog_gap: ""
+    catalog_gap: "The existing Roadshow provides participant-facing hands-on content but nothing in the catalog addresses the train-the-trainer layer — how field teams should position, schedule, and deliver the Roadshow to customers."
     design_overview: "Prepares Red Hat field teams to deliver the OpenShift Ops Day Roadshow by covering the workshop structure, positioning, and delivery techniques, followed by hands-on exercises in application management and observability."
     module_summaries:
       - title: "What Is the OpenShift Roadshow?"
@@ -120,8 +120,13 @@ approval_checklist:
         overview: "Hands-on exercises verifying cluster health, deploying an application, and troubleshooting failures."
       - title: "Observability Hands-On"
         overview: "Hands-on exercises with Prometheus metrics, Loki logs, and OpenTelemetry/Tempo traces."
-    rcars_overlap_pct: null
-    rcars_top_matches: []
+    rcars_overlap_pct: 87
+    rcars_top_matches:
+      - title: "OpenShift Ops Day Roadshow"
+        ci_name: "published.openshift-days-ops-track.prod"
+        url: "https://catalog.demo.redhat.com/catalog?item=published.openshift-days-ops-track.prod"
+        relevance_score: 87
+        why_it_fits: "This is the actual OpenShift Ops Day Roadshow workshop content — the same modules this lab teaches people to deliver."
     rejections: []
 
   infra:
