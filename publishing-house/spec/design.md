@@ -71,12 +71,11 @@ Intermediate
 
 ## Infrastructure Requirements
 
-- **Cloud provider:** TBD — confirmed in infrastructure phase
-- **Cluster type:** TBD — confirmed in infrastructure phase
-- **OCP version:** TBD — confirmed in infrastructure phase
-- **Topology:** TBD — confirmed in infrastructure phase
-- **Sizing:** TBD — confirmed in infrastructure phase
-- **Automation approach:** TBD — confirmed in infrastructure phase
+- **Cloud provider:** CNV
+- **Cluster type:** Multinode — 3 control plane (16 vCPU, 64GB RAM), 3 workers (8 vCPU, 32GB RAM, 100GB disk)
+- **OCP version:** 4.20
+- **Topology:** Shared cluster
+- **Automation approach:** Ansible
 - **AI/MaaS:** None
-- **External services:** TBD — confirmed in infrastructure phase
+- **External services:** registry.redhat.io, registry.connect.redhat.com
 - **Non-GA products:** None (all products are GA)
