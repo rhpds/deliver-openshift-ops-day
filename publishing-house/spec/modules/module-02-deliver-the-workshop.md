@@ -18,6 +18,12 @@ This module covers the end-to-end process of delivering the OpenShift Roadshow t
 - Describe how to provision and troubleshoot lab environments
 - Identify how to prepare as a presenter and how to include additional customer-specific content
 
+## Lab Structure
+
+| Section | Title | Duration |
+|---------|-------|----------|
+| —       | No lab; informational content only | — |
+
 ## Detailed Steps
 
 ### How to deliver the workshop to a customer

@@ -16,6 +16,12 @@ This module introduces the OpenShift Roadshow, explains why it is useful for cus
 - Explain why the Roadshow is useful for potential and existing customers
 - Position the Roadshow for different customer engagement scenarios
 
+## Lab Structure
+
+| Section | Title | Duration |
+|---------|-------|----------|
+| —       | No lab; informational content only | — |
+
 ## Detailed Steps
 
 ### What is the OpenShift Roadshow?

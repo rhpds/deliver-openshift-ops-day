@@ -16,6 +16,12 @@ This module provides a comprehensive walkthrough of all 18 modules in the OpenSh
 - Identify which modules align with common customer priorities (operations, security, networking, storage, observability, application management)
 - Assess which modules are appropriate for a given customer scenario based on topic coverage and prerequisites
 
+## Lab Structure
+
+| Section | Title | Duration |
+|---------|-------|----------|
+| —       | No lab; informational content only | — |
+
 ## Detailed Steps
 
 1. Review the complete list of 18 Roadshow modules grouped by topic area.
