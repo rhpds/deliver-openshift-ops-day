@@ -14,7 +14,7 @@ project:
   showroom_type: "classic"
   intake_type: "new"
   automation_type: "ansible"
-  description: "An overview of the OpenShift Ops Day Roadshow workshop including its features and how to deliver it and an opportunity to try important modules."
+  description: "An overview of the OpenShift Ops Day workshop as well as delivery instructions and lab guidance, including live content delivery."
   # content_reviewer_email and infra_reviewer_email are assigned by the RHDP team — not set by the author
   jira_ticket: "RHDPCD-1196"
   workflow_id: "5498fbed-df06-45ee-8e4c-21142a5d5540"
@@ -22,29 +22,27 @@ project:
 spec:
   title: "Deliver the OpenShift Ops Day Roadshow"
   learning_objectives:
-    - "Describe the OpenShift Ops Day Roadshow's structure, value propositions, and delivery formats"
-    - "Identify how to position the Roadshow for different customer scenarios (single-day, regional event, individual sessions)"
-    - "Demonstrate the delivery workflow for a Roadshow module including supporting materials, live walkthrough, student work time, and reviews"
-    - "Describe the high-level background and purpose of all 18 modules in the workshop"
+    - "Describe the OpenShift Ops Day Roadshow's structure, content, value propositions, and delivery formats"
+    - "Describe and demo how to deliver a workshop module including supporting materials, live walkthroughs and student work time"
+    - "Describe the content included and background required for all 18 modules in the workshop"
     - "Demonstrate delivery of application management and troubleshooting content including cluster verification, application deployment, and debugging"
     - "Demonstrate delivery of observability content including metrics with Prometheus, logs with Loki, and traces with OpenTelemetry"
   modules:
     - id: module-01
-      title: "What Is the OpenShift Roadshow?"
-      duration_min: 15
+      title: "Position the Workshop"
+      duration_min: 20
       status: not_started
     - id: module-02
-      title: "Positioning and Scheduling the Roadshow"
+      title: "Deliver the Workshop"
       duration_min: 15
       status: not_started
     - id: module-03
-      title: "How to Deliver a Module"
-      duration_min: 30
-      status: not_started
-    - id: module-04
       title: "Application Management Hands-On"
       duration_min: 30
       status: not_started
+    - id: module-04
+      title: "Overview of All Modules"
+      duration_min: 20
     - id: module-05
       title: "Observability Hands-On"
       duration_min: 30

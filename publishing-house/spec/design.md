@@ -2,7 +2,7 @@
 
 ## Overview
 
-This lab prepares Red Hat field teams to deliver the OpenShift Ops Day Roadshow workshop to customers. Participants learn what the Roadshow is, how to position and schedule it, and how to deliver individual modules effectively. They then complete hands-on exercises from the Application Management and Observability modules to build familiarity with the content they will be presenting.
+This lab provides an overview of the OpenShift Ops Day workshop as well as delivery instructions and lab guidance, including live content delivery. Participants learn what the Roadshow is, how to deliver modules, and the content covered across all 18 modules. They complete hands-on exercises from the Application Management and Observability modules to build familiarity with the content they will be presenting.
 
 ## Target Audience
 
@@ -19,12 +19,11 @@ This lab prepares Red Hat field teams to deliver the OpenShift Ops Day Roadshow 
 
 ## Learning Objectives
 
-1. Describe the OpenShift Ops Day Roadshow's structure, value propositions, and delivery formats
-2. Identify how to position the Roadshow for different customer scenarios (single-day, regional event, individual sessions)
-3. Demonstrate the delivery workflow for a Roadshow module including supporting materials, live walkthrough, student work time, and reviews
-4. Describe the high-level background and purpose of all 18 modules in the workshop
-5. Demonstrate delivery of application management and troubleshooting content including cluster verification, application deployment, and debugging
-6. Demonstrate delivery of observability content including metrics with Prometheus, logs with Loki, and traces with OpenTelemetry
+1. Describe the OpenShift Ops Day Roadshow's structure, content, value propositions, and delivery formats
+2. Describe and demo how to deliver a workshop module including supporting materials, live walkthroughs and student work time
+3. Describe the content included and background required for all 18 modules in the workshop
+4. Demonstrate delivery of application management and troubleshooting content including cluster verification, application deployment, and debugging
+5. Demonstrate delivery of observability content including metrics with Prometheus, logs with Loki, and traces with OpenTelemetry
 
 ## Content Type
 
@@ -33,24 +32,17 @@ Lab (hands-on)
 ## Products & Technologies
 
 - Red Hat OpenShift Container Platform
-- Prometheus (bundled with OpenShift monitoring stack)
-- Thanos (bundled with OpenShift monitoring stack)
-- Loki (OpenShift Logging)
-- Vector (ClusterLogForwarder)
-- OpenTelemetry (OpenShift distributed tracing)
-- Tempo (OpenShift distributed tracing)
 
 ## Module Map
 
 | Module | Title | Duration |
 |--------|-------|----------|
-| 1 | What Is the OpenShift Roadshow? | 15 min |
-| 2 | Positioning and Scheduling the Roadshow | 15 min |
-| 3 | How to Deliver a Module | 30 min |
-| 4 | Application Management Hands-On | 30 min |
+| 1 | Position the Workshop | 20 min |
+| 2 | Deliver the Workshop | 15 min |
+| 3 | Application Management Hands-On | 30 min |
+| 4 | Overview of All Modules | 20 min |
 | 5 | Observability Hands-On | 30 min |
 | — | **Total hands-on** | **1 hour** |
-| — | Intro / presentation | **~1 hour** |
 | — | **Total lab** | **~2 hours** |
 
 ## Difficulty Level
@@ -72,9 +64,9 @@ Intermediate
 ## Infrastructure Requirements
 
 - **Cloud provider:** CNV
-- **Cluster type:** Multinode — 3 control plane (16 vCPU, 64GB RAM), 3 workers (8 vCPU, 32GB RAM, 100GB disk)
+- **Cluster type:** Multinode — 3 control plane (16 vCPU, 64GB RAM), no workers
 - **OCP version:** 4.20
-- **Topology:** Shared cluster
+- **Topology:** One cluster per student
 - **Automation approach:** Ansible
 - **AI/MaaS:** None
 - **External services:** registry.redhat.io, registry.connect.redhat.com

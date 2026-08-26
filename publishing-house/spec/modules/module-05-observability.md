@@ -7,7 +7,7 @@ This module provides hands-on practice with the Observability content from the R
 ## Audience and Time
 
 - **Target personas:** Solution architects, specialist solution architects, adoption architects, technical account managers, sales specialists
-- **Prerequisites for this module:** Basic familiarity with OpenShift CLI (`oc`) and the web console; completion of Modules 1-3; completion of Module 4 is recommended
+- **Prerequisites for this module:** Basic familiarity with OpenShift CLI (`oc`) and the web console
 - **Estimated duration:** 30 minutes
 
 ## Learning Objectives

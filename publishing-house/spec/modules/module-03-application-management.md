@@ -7,7 +7,7 @@ This module provides hands-on practice with the Application Management content f
 ## Audience and Time
 
 - **Target personas:** Solution architects, specialist solution architects, adoption architects, technical account managers, sales specialists
-- **Prerequisites for this module:** Basic familiarity with OpenShift CLI (`oc`) and the web console; completion of Modules 1-3
+- **Prerequisites for this module:** Basic familiarity with OpenShift CLI (`oc`) and the web console; completion of Modules 1-2
 - **Estimated duration:** 30 minutes
 
 ## Learning Objectives
