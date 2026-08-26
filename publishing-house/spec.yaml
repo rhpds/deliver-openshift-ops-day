@@ -51,7 +51,7 @@ spec:
       status: not_started
   environment:
     platform: "ocp"
-    topology: "shared-cluster"
+    topology: "one-cluster-per-student"
     cloud_provider: cnv
     max_concurrent_users: 100
 
@@ -61,10 +61,10 @@ spec:
     control_plane_instance_count: 3
     control_plane_cpu: 16
     control_plane_ram_gb: 64
-    worker_count: 3
-    worker_cpu: 8
-    worker_ram_gb: 32
-    worker_disk_gb: 100
+    worker_count: 0
+    worker_cpu: 0
+    worker_ram_gb: 0
+    worker_disk_gb: 0
 
     # --- VM-specific fields (only when platform = rhel-vms) ---
     # Each entry: {role, count, cpu, ram_gb, disk_gb, os}
