@@ -2,28 +2,26 @@
 
 ## Overview
 
-This lab provides an overview of the OpenShift Ops Day workshop as well as delivery instructions and lab guidance, including live content delivery. Participants learn what the Roadshow is, how to deliver modules, and the content covered across all 18 modules. They complete hands-on exercises from the Application Management and Observability modules to build familiarity with the content they will be presenting.
+This lab provides an overview of and delivery guidance for the OpenShift Ops Day workshop followed by hands-on walkthroughs of modules on observability in OpenShift, Zero Trust Workload Identity Manager and secrets management with Vault and External Secrets Operator. Participants learn what the workshop contains and how to provision it for engagements, select content and deliver the modules.
 
 ## Target Audience
 
 - **Role:** Solution architects, specialist solution architects, adoption architects, technical account managers, sales specialists
 - **Experience level:** Intermediate
-- **What they already know:** Core OpenShift concepts (clusters, projects, deployments), basic CLI usage, familiarity with the Red Hat Demo Platform
-- **What they don't know:** How the Roadshow is structured, how to deliver individual modules, and the specifics of the hands-on lab environment
+- **What they already know:** Kubernetes concepts such as pods, nodes, secrets and namespaces; and OpenShift concepts such as operators and monitoring
+- **What they don't know:** How the Roadshow and its lab is structured; OpenShift observability; ZTWIM; secrets management with ESO
 
 ## Prerequisites
 
-- Active access to the Red Hat Demo Platform (RHDP)
-- Basic familiarity with OpenShift CLI (`oc`) and the web console
-- Can the lab validate these automatically? No — trust-based
+- Familiarity with `oc`/`kubectl` CLI and OpenShift web console
 
 ## Learning Objectives
 
-1. Describe the OpenShift Ops Day Roadshow's structure, content, value propositions, and delivery formats
-2. Describe and demo how to deliver a workshop module including supporting materials, live walkthroughs and student work time
-3. Describe the content included and background required for all 18 modules in the workshop
-4. Demonstrate delivery of application management and troubleshooting content including cluster verification, application deployment, and debugging
-5. Demonstrate delivery of observability content including metrics with Prometheus, logs with Loki, and traces with OpenTelemetry
+1. Learn about the OpenShift Ops Day Roadshow's structure, content, value propositions, and delivery formats
+2. Deliver a workshop module including supporting materials, lab setup, live walkthroughs and student work time
+3. Deliver a module on observability in OpenShift including metrics with Prometheus, logs with Loki and traces with OpenTelemetry
+4. Deliver a module on Zero Trust Workload Identity Manager for passwordless service authentication
+5. Deliver a module on secrets management with Hashicorp Vault and External Secrets Operator
 
 ## Content Type
 
@@ -32,18 +30,21 @@ Lab (hands-on)
 ## Products & Technologies
 
 - Red Hat OpenShift Container Platform
+- Red Hat OpenShift Observability - Prometheus, Loki, OpenTelemetry, Tempo
+- Red Hat OpenShift Zero Trust Workload Identity Manager (ZTWIM)
+- Hashicorp Vault
+- External Secrets Operator (ESO)
 
 ## Module Map
 
 | Module | Title | Duration |
 |--------|-------|----------|
-| 1 | Position the Workshop | 20 min |
-| 2 | Deliver the Workshop | 15 min |
-| 3 | Application Management Hands-On | 30 min |
-| 4 | Overview of All Modules | 20 min |
-| 5 | Observability Hands-On | 30 min |
-| — | **Total hands-on** | **1 hour** |
-| — | **Total lab** | **~2 hours** |
+| 1 | Position and deliver the workshop | 25 min |
+| 2 | Observability in OpenShift | 30 min |
+| 3 | Zero Trust Workload Identity Manager | 30 min |
+| 4 | Secrets management with Vault and External Secrets Operator | 30 min |
+| — | **Total hands-on** | **90 minutes** |
+| — | **Total lab** | **2 hours** |
 
 ## Difficulty Level
 
@@ -51,15 +52,13 @@ Intermediate
 
 ## Environment
 
-**Learner view:** An OpenShift cluster with pre-deployed sample applications and configured monitoring stack (Prometheus, Thanos, Loki, Tempo, OpenTelemetry Collector). Participants access the cluster via the web console and CLI. Roadshow supporting materials (slide decks, presenter notes) are available through the Showroom interface.
+**Learner view:** Participants access content and cluster via Showroom interface. An OpenShift cluster with full monitoring stack configured (Prometheus, Thanos, Loki, Tempo, OpenTelemetry), ZTWIM ready to deploy, and Hashicorp Vault and External Secrets Operator ready to deploy.
 
 **Automation needed:** Yes
 
-- OpenShift cluster with monitoring stack enabled
-- Loki, Tempo, and OpenTelemetry operators installed and configured
-- Sample application deployed for troubleshooting exercises
-- Sample application instrumented for distributed tracing
-- Pre-configured dashboards and alerts for observability module
+- OpenShift cluster with monitoring stack ready - Loki, Tempo, OpenTelemetry, etc.
+- OpenShift cluster with ZTWIM prerequisites
+- OpenShift cluster with secret management prerequisites
 
 ## Infrastructure Requirements
 

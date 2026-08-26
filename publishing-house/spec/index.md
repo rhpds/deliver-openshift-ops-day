@@ -3,8 +3,7 @@
 Welcome to the project spec. Use the navigation to browse the design and module outlines.
 
 - [Design Spec](design.md)
-- [Module 1 - Position the Workshop](modules/module-01-position-the-workshop.md)
-- [Module 2 - Deliver the Workshop](modules/module-02-deliver-the-workshop.md)
-- [Module 3 - Application Management Hands-On](modules/module-03-application-management.md)
-- [Module 4 - Overview of All Modules](modules/module-04-overview-of-all-modules.md)
-- [Module 5 - Observability Hands-On](modules/module-05-observability.md)
+- [Module 1 - Position and Deliver the Workshop](modules/module-01-position-and-deliver.md)
+- [Module 2 - Observability in OpenShift](modules/module-02-observability.md)
+- [Module 3 - Zero Trust Workload Identity Manager](modules/module-03-ztwim.md)
+- [Module 4 - Secrets Management with Vault and ESO](modules/module-04-secrets-management.md)

@@ -14,7 +14,7 @@ project:
   showroom_type: "classic"
   intake_type: "new"
   automation_type: "ansible"
-  description: "An overview of the OpenShift Ops Day workshop as well as delivery instructions and lab guidance, including live content delivery."
+  description: "Overview and delivery guidance for the OpenShift Ops Day roadshow; and a walkthrough of the Observability, Zero Trust Workload Identity Manager and Secrets Management modules."
   # content_reviewer_email and infra_reviewer_email are assigned by the RHDP team — not set by the author
   jira_ticket: "RHDPCD-1196"
   workflow_id: "5498fbed-df06-45ee-8e4c-21142a5d5540"
@@ -22,29 +22,26 @@ project:
 spec:
   title: "Deliver the OpenShift Ops Day Roadshow"
   learning_objectives:
-    - "Describe the OpenShift Ops Day Roadshow's structure, content, value propositions, and delivery formats"
-    - "Describe and demo how to deliver a workshop module including supporting materials, live walkthroughs and student work time"
-    - "Describe the content included and background required for all 18 modules in the workshop"
-    - "Demonstrate delivery of application management and troubleshooting content including cluster verification, application deployment, and debugging"
-    - "Demonstrate delivery of observability content including metrics with Prometheus, logs with Loki, and traces with OpenTelemetry"
+    - "Learn about the OpenShift Ops Day Roadshow's structure, content, value propositions, and delivery formats"
+    - "Deliver a workshop module including supporting materials, lab setup, live walkthroughs and student work time"
+    - "Deliver a module on observability in OpenShift including metrics with Prometheus, logs with Loki and traces with OpenTelemetry"
+    - "Deliver a module on Zero Trust Workload Identity Manager for passwordless service authentication"
+    - "Deliver a module on secrets management with Hashicorp Vault and External Secrets Operator"
   modules:
     - id: module-01
-      title: "Position the Workshop"
-      duration_min: 20
+      title: "Position and deliver the workshop"
+      duration_min: 25
       status: not_started
     - id: module-02
-      title: "Deliver the Workshop"
-      duration_min: 15
+      title: "Observability in OpenShift"
+      duration_min: 30
       status: not_started
     - id: module-03
-      title: "Application Management Hands-On"
+      title: "Zero Trust Workload Identity Manager"
       duration_min: 30
       status: not_started
     - id: module-04
-      title: "Overview of All Modules"
-      duration_min: 20
-    - id: module-05
-      title: "Observability Hands-On"
+      title: "Secrets management with Vault and External Secrets Operator"
       duration_min: 30
       status: not_started
   environment:
@@ -108,18 +105,16 @@ approval_checklist:
     prerequisites_verifiable: false
     assessment_strategy: ""
     catalog_gap: "The existing Roadshow provides participant-facing hands-on content but nothing in the catalog addresses the train-the-trainer layer — how field teams should position, schedule, and deliver the Roadshow to customers."
-    design_overview: "Prepares Red Hat field teams to deliver the OpenShift Ops Day Roadshow by covering the workshop structure, positioning, and delivery techniques, followed by hands-on exercises in application management and observability."
+    design_overview: "Prepares Red Hat field teams to deliver the OpenShift Ops Day Roadshow by covering the workshop structure, positioning, and delivery techniques, followed by hands-on exercises in observability, Zero Trust Workload Identity Manager, and secrets management."
     module_summaries:
-      - title: "What Is the OpenShift Roadshow?"
-        overview: "Overview of the Roadshow's structure, content modules, and value propositions for customers."
-      - title: "Positioning and Scheduling the Roadshow"
-        overview: "How to position the Roadshow for different customer scenarios and schedule it on RHDP."
-      - title: "How to Deliver a Module"
-        overview: "The delivery workflow: supporting materials, live walkthrough, student work time, and reviews."
-      - title: "Application Management Hands-On"
-        overview: "Hands-on exercises verifying cluster health, deploying an application, and troubleshooting failures."
-      - title: "Observability Hands-On"
-        overview: "Hands-on exercises with Prometheus metrics, Loki logs, and OpenTelemetry/Tempo traces."
+      - title: "Position and Deliver the Workshop"
+        overview: "Introduction to the Roadshow, its value propositions and delivery formats, and end-to-end guidance on delivering the workshop to customers."
+      - title: "Observability in OpenShift"
+        overview: "Hands-on walkthrough of metrics with Prometheus, logs with Vector and Loki, and distributed tracing with OpenTelemetry and Tempo."
+      - title: "Zero Trust Workload Identity Manager"
+        overview: "Hands-on walkthrough of ZTWIM for passwordless service-to-service authentication on OpenShift."
+      - title: "Secrets Management with Vault and ESO"
+        overview: "Hands-on walkthrough of Hashicorp Vault and External Secrets Operator for centralized secrets management."
     rcars_overlap_pct: 87
     rcars_top_matches:
       - title: "OpenShift Ops Day Roadshow"
