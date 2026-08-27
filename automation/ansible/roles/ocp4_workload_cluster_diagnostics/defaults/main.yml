@@ -1,0 +1,6 @@
+---
+# End-of-deployment diagnostics — captures cluster state (nodes, operators,
+# storage, pods, events, HCP status) for debugging failed deployments.
+# Runs last in the workload list. All tasks use ignore_errors so
+# diagnostic failures never block the overall deployment.
+silent: false

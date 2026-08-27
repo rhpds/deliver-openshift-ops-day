@@ -1,0 +1,5 @@
+---
+# Patches the default IngressController to accept wildcard routes,
+# required for HCP clusters to expose their API/console via the
+# hub cluster's ingress.
+silent: false

@@ -1,0 +1,15 @@
+---
+- name: Uninstall Vault Helm release
+  command: >-
+    helm uninstall {{ ocp4_days_workload_vault_helm_release }}
+    --namespace {{ ocp4_days_workload_vault_namespace }}
+  ignore_errors: true
+
+- name: Remove namespace
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_days_workload_vault_namespace }}"
+    wait: true
+    wait_timeout: 120

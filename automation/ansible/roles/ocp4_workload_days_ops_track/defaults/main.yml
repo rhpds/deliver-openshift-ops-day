@@ -1,0 +1,83 @@
+---
+ocp_username: admin
+silent: false
+
+# Main workshop setup role — gathers cluster metadata, grants cluster-admin,
+# configures Showroom, reduces NooBaa/BackingStore resources, and deploys
+# optional components (LVMS, OLS demo pod).
+
+# -------------------------------------------------------------------
+# NooBaa resource reduction (optional)
+# Patches the StorageCluster CR to reduce NooBaa core and endpoint CPU/memory.
+# The propagation chain is:
+#   StorageCluster → OCS operator → NooBaa CR → NooBaa operator → pods
+# Direct patches to NooBaa CR or pods are reverted by the operators.
+# Set workshop_reduce_noobaa_resources: true to enable.
+# -------------------------------------------------------------------
+workshop_reduce_noobaa_resources: false
+
+# Core pod (noobaa-core-0 StatefulSet)
+workshop_noobaa_core_cpu_requests: "250m"
+workshop_noobaa_core_cpu_limits: "1"
+workshop_noobaa_core_memory_requests: "1Gi"
+workshop_noobaa_core_memory_limits: "2Gi"
+
+# Endpoint pod (noobaa-endpoint Deployment)
+workshop_noobaa_endpoint_cpu_requests: "200m"
+workshop_noobaa_endpoint_cpu_limits: "1"
+workshop_noobaa_endpoint_memory_requests: "512Mi"
+workshop_noobaa_endpoint_memory_limits: "2Gi"
+
+# BackingStore minimum memory (unconditional — not gated by the flag above)
+# MCG 4.20+ rejects BackingStores with memory requests below 400Mi.
+# The StorageCluster patch does not control BackingStore pod resources,
+# so we patch the BackingStore CR directly if it's in Rejected phase.
+workshop_noobaa_backingstore_memory_requests: "400Mi"
+
+# -------------------------------------------------------------------
+# Prometheus retention reduction (optional)
+# Default Prometheus runs 15-day retention and each instance uses ~5 GiB
+# RSS. Reducing to 2d cuts memory by ~2 GiB per instance (~4 GiB total).
+# For a 1-2 day workshop, 2d retention is more than enough.
+#
+# This merges into the existing cluster-monitoring-config ConfigMap
+# (which may already contain enableUserWorkload and ACM alertmanager
+# config). The monitoring operator rolls out Prometheus automatically.
+#
+# Note: Prometheus replicas cannot be changed via ConfigMap in OCP 4.20
+# (the CMO webhook rejects the field). Replicas remain at the default 2.
+# -------------------------------------------------------------------
+workshop_reduce_prometheus_retention: false
+workshop_prometheus_retention: "2d"
+
+# -------------------------------------------------------------------
+# LVMS Deployment (optional - set workshop_deploy_lvms: true to enable)
+# -------------------------------------------------------------------
+workshop_deploy_lvms: false
+
+# LVMS operator settings
+workshop_lvms_channel: stable-4.20
+workshop_lvms_namespace: openshift-storage
+
+# Catalog snapshot settings (optional)
+workshop_lvms_use_catalog_snapshot: false
+workshop_lvms_catalogsource_name: redhat-operators-snapshot-lvms
+workshop_lvms_catalog_snapshot_image: quay.io/gpte-devops-automation/olm_snapshot_redhat_catalog
+workshop_lvms_catalog_snapshot_image_tag: v4.20_2026_01_12
+
+# LVMCluster configuration
+workshop_lvms_vg_name: vg1
+
+# Device paths - leave empty to use auto-discovery
+workshop_lvms_paths: []
+
+# Optional paths - devices that may or may not exist (handles AWS NVMe ordering)
+workshop_lvms_optional_paths:
+  - /dev/nvme0n1
+  - /dev/nvme1n1
+  - /dev/nvme2n1
+  - /dev/nvme3n1
+  - /dev/nvme4n1
+
+# Force wipe - required when using optionalPaths to handle pre-existing signatures
+workshop_lvms_force_wipe: true

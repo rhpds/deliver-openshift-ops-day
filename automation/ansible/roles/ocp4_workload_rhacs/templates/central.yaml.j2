@@ -1,0 +1,106 @@
+---
+apiVersion: platform.stackrox.io/v1alpha1
+kind: Central
+metadata:
+  name: stackrox-central-services
+  namespace: stackrox
+spec:
+  central:
+    adminPasswordSecret:
+      name: acs-password
+    resources:
+      requests:
+        cpu: '500m'
+        memory: 2Gi
+      limits:
+        cpu: '2'
+        memory: 4Gi
+    exposure:
+      loadBalancer:
+        enabled: false
+        port: 443
+      nodePort:
+        enabled: false
+      route:
+        enabled: true
+    persistence:
+      persistentVolumeClaim:
+        claimName: stackrox-db
+{% if ocp4_workload_rhacs_central_storage_class is defined %}
+        storageClassName: {{ ocp4_workload_rhacs_central_storage_class }}
+{% endif %}
+    db:
+      resources:
+        requests:
+          cpu: '500m'
+          memory: 2Gi
+        limits:
+          cpu: '2'
+          memory: 4Gi
+      persistence:
+        persistentVolumeClaim:
+{% if ocp4_workload_rhacs_central_storage_class is defined %}
+          storageClassName: {{ ocp4_workload_rhacs_central_storage_class }}
+{% endif %}
+  egress:
+    connectivityPolicy: Online
+  scanner:
+    analyzer:
+      scaling:
+        autoScaling: Disabled
+        replicas: 1
+      resources:
+        requests:
+          cpu: '500m'
+          memory: 512Mi
+        limits:
+          cpu: '1'
+          memory: 2Gi
+    scannerComponent: Enabled
+    db:
+      persistence:
+        persistentVolumeClaim:
+{% if ocp4_workload_rhacs_central_storage_class is defined %}
+          storageClassName: {{ ocp4_workload_rhacs_central_storage_class }}
+{% endif %}
+{% if ocp4_workload_rhacs_enable_central_scanner_v4 | bool %}
+{% if ocp4_workload_rhacs_install_operator_channel.split('-')[1] | float >= 4.4 %}
+  scannerV4:
+    db:
+      resources:
+        requests:
+          cpu: '500m'
+          memory: 1Gi
+        limits:
+          cpu: '1'
+          memory: 2Gi
+      persistence:
+        persistentVolumeClaim:
+{% if ocp4_workload_rhacs_central_storage_class is defined %}
+          storageClassName: {{ ocp4_workload_rhacs_central_storage_class }}
+{% endif %}
+    indexer:
+      scaling:
+        autoScaling: Disabled
+        replicas: 1
+      resources:
+        requests:
+          cpu: '500m'
+          memory: 512Mi
+        limits:
+          cpu: '1'
+          memory: 2Gi
+    matcher:
+      scaling:
+        autoScaling: Disabled
+        replicas: 1
+      resources:
+        requests:
+          cpu: '500m'
+          memory: 512Mi
+        limits:
+          cpu: '1'
+          memory: 2Gi
+    scannerComponent: Enabled
+{% endif %}
+{% endif %}

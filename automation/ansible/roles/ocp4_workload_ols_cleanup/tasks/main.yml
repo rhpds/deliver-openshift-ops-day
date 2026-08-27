@@ -1,0 +1,9 @@
+---
+- name: Remove OLSConfig so students create it manually
+  when: ACTION == "provision"
+  ansible.builtin.include_tasks: workload.yml
+
+- name: Skip cleanup on destroy
+  when: ACTION == "destroy"
+  debug:
+    msg: "Skipping OLS cleanup on destroy"

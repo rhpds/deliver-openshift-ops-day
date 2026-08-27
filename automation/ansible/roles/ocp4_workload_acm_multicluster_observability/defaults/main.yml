@@ -1,0 +1,23 @@
+---
+# Deploys ACM MultiCluster Observability with Thanos-based metrics
+# collection across managed clusters. Uses NooBaa (OBC) for object storage.
+ocp_username: admin
+silent: false
+
+## MultiCluster Observability related variables ##
+ocp4_workload_acm_multicluster_observability_namespace: open-cluster-management-observability
+
+# ---------------------------------------------------------------
+# Compact resource mode for resource-constrained clusters.
+# When true, reduces all MCO component replicas to 1 (no HA) and
+# lowers CPU requests to match observed usage (~135m total).
+# All components remain fully functional — only HA redundancy is
+# removed. Safe for single-user lab/workshop environments.
+#
+# Set to false (default) to use upstream MCO operator defaults
+# (2-3 replicas per component, higher CPU requests).
+#
+# To revert: set this to false and the MCO operator will
+# reconcile back to its defaults on next deployment.
+# ---------------------------------------------------------------
+ocp4_workload_acm_multicluster_observability_compact_resources: false

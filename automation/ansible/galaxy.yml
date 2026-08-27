@@ -1,0 +1,18 @@
+---
+namespace: deliver_openshift_ops_day
+name: automation
+version: 1.0.0
+readme: README.md
+authors:
+  - Josh Newsome <jnewsome@redhat.com>
+description: Ansible collection for OpenShift Ops Day Roadshow - Deliver Workshop
+license_file: LICENSE
+tags:
+  - openshift
+  - workshop
+  - operations
+  - days
+  - delivery
+dependencies:
+  kubernetes.core: ">=2.0.0"
+repository: https://github.com/rhpds/deliver-openshift-ops-day

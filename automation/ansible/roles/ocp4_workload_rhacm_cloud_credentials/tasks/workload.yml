@@ -1,0 +1,141 @@
+---
+- name: Setting up workload for user
+  debug:
+    msg: "Setting up workload for user ocp_username = {{ ocp_username }}"
+
+# ==============================================================================
+# DEBUG - Dump all relevant variables and cluster state before credential setup
+# ==============================================================================
+- name: DEBUG - Cloud credentials input variables
+  debug:
+    msg:
+      - "=== CLOUD CREDENTIALS CONFIG ==="
+      - "set_aws_acm_secret: {{ set_aws_acm_secret | default('undefined') }}"
+      - "set_azr_acm_secret: {{ set_azr_acm_secret | default('undefined') }}"
+      - "ocp4_workload_rhacm_cloud_credentials_kubevirt: {{ ocp4_workload_rhacm_cloud_credentials_kubevirt | default('undefined') }}"
+      - "ocp4_workload_rhacm_cloud_credentials_kubevirt_secret_name: {{ ocp4_workload_rhacm_cloud_credentials_kubevirt_secret_name | default('undefined') }}"
+      - "ocp4_workload_rhacm_cloud_credentials_namespace: {{ ocp4_workload_rhacm_cloud_credentials_namespace | default('undefined') }}"
+      - "ocp4_workload_rhacm_cloud_credentials_install_hcp_cli: {{ ocp4_workload_rhacm_cloud_credentials_install_hcp_cli | default('undefined') }}"
+      - "ocp4_pull_secret defined: {{ ocp4_pull_secret is defined }}"
+      - "ocp4_pull_secret length: {{ ocp4_pull_secret | default('') | length }}"
+      - "guid: {{ guid | default('undefined') }}"
+  ignore_errors: true
+
+- name: DEBUG - Check open-cluster-management namespace
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: open-cluster-management
+  register: debug_ocm_ns
+  ignore_errors: true
+
+- name: DEBUG - Display OCM namespace status
+  debug:
+    msg:
+      - "=== OCM NAMESPACE ==="
+      - "exists: {{ debug_ocm_ns.resources | default([]) | length > 0 }}"
+      - "status: {{ debug_ocm_ns.resources[0].status.phase | default('unknown') }}"
+  when: debug_ocm_ns is defined
+  ignore_errors: true
+
+- name: DEBUG - Check existing credentials in OCM namespace
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    namespace: open-cluster-management
+    label_selectors:
+      - cluster.open-cluster-management.io/credentials
+  register: debug_existing_creds
+  ignore_errors: true
+
+- name: DEBUG - Display existing credentials
+  debug:
+    msg:
+      - "=== EXISTING CLOUD CREDENTIALS ==="
+      - "count: {{ debug_existing_creds.resources | default([]) | length }}"
+      - "names: {{ debug_existing_creds.resources | default([]) | map(attribute='metadata') | map(attribute='name') | list }}"
+  when: debug_existing_creds is defined
+  ignore_errors: true
+
+- name: DEBUG - Check MultiClusterHub status
+  kubernetes.core.k8s_info:
+    api_version: operator.open-cluster-management.io/v1
+    kind: MultiClusterHub
+    namespace: open-cluster-management
+  register: debug_mch
+  ignore_errors: true
+
+- name: DEBUG - Display MultiClusterHub status
+  debug:
+    msg:
+      - "=== MULTICLUSTERHUB ==="
+      - "exists: {{ debug_mch.resources | default([]) | length > 0 }}"
+      - "phase: {{ debug_mch.resources[0].status.phase | default('unknown') }}"
+  when: debug_mch is defined and debug_mch.resources | default([]) | length > 0
+  ignore_errors: true
+
+# ==============================================================================
+# Cloud credential creation
+# ==============================================================================
+
+- when: set_aws_acm_secret | default(false) | bool
+  block:
+    - name: Create OpenShift objects for workload
+      k8s:
+        state: present
+        definition: "{{ lookup('template', './templates/aws_secret.j2' ) | from_yaml }}"
+
+- when: set_azr_acm_secret | default(false) | bool
+  block:
+    - name: Create OpenShift objects for workload
+      k8s:
+        state: present
+        definition: "{{ lookup('template', './templates/azure_secret.j2' ) | from_yaml }}"
+
+- when: ocp4_workload_rhacm_cloud_credentials_kubevirt | default(false) | bool
+  vars:
+    ocp4_workload_rhacm_cloud_credentials_kubevirt_pubkey: ""
+  block:
+    - name: DEBUG - KubeVirt credential template variables
+      debug:
+        msg:
+          - "=== KUBEVIRT CREDENTIAL SETUP ==="
+          - "namespace: {{ ocp4_workload_rhacm_cloud_credentials_namespace }}"
+          - "secret_name: {{ ocp4_workload_rhacm_cloud_credentials_kubevirt_secret_name }}"
+          - "pubkey value: '{{ ocp4_workload_rhacm_cloud_credentials_kubevirt_pubkey }}'"
+          - "ocp4_pull_secret type: {{ ocp4_pull_secret | default('') | type_debug }}"
+          - "ocp4_pull_secret first 50 chars: {{ ocp4_pull_secret | default('MISSING') | truncate(50) }}"
+      ignore_errors: true
+
+    - name: Create OpenShift objects for workload - KubeVirt
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', './templates/kubevirt_ns_and_secret.yaml.j2' ) | from_yaml_all }}"
+
+    - name: DEBUG - Verify KubeVirt credential was created
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Secret
+        name: "{{ ocp4_workload_rhacm_cloud_credentials_kubevirt_secret_name }}"
+        namespace: "{{ ocp4_workload_rhacm_cloud_credentials_namespace }}"
+      register: debug_kubevirt_secret
+      ignore_errors: true
+
+    - name: DEBUG - Display KubeVirt credential status
+      debug:
+        msg:
+          - "=== KUBEVIRT CREDENTIAL CREATED ==="
+          - "exists: {{ debug_kubevirt_secret.resources | default([]) | length > 0 }}"
+          - "keys: {{ debug_kubevirt_secret.resources[0].data.keys() | list | default([]) }}"
+      when: debug_kubevirt_secret is defined
+      ignore_errors: true
+
+- name: Install HCP CLI
+  when: ocp4_workload_rhacm_cloud_credentials_install_hcp_cli | default(false) | bool
+  ansible.builtin.include_tasks:
+    file: install_hcp_cli.yaml
+
+- name: workload tasks complete
+  debug:
+    msg: "Workload Tasks completed successfully."
+  when: not silent | bool

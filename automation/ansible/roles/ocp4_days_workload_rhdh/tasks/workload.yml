@@ -1,0 +1,762 @@
+---
+# DAYS version: Simple RHDH deployment using the operator
+# No complex Helm/ArgoCD/Janus dependencies
+
+# ==============================================================================
+# DEBUG - RHDH pre-flight checks
+# ==============================================================================
+- name: DEBUG - RHDH input variables
+  debug:
+    msg:
+      - "=== RHDH CONFIG ==="
+      - "operator_namespace: {{ ocp4_days_workload_rhdh_operator_namespace }}"
+      - "instance_namespace: {{ ocp4_days_workload_rhdh_instance_namespace }}"
+      - "instance_name: {{ ocp4_days_workload_rhdh_instance_name }}"
+      - "channel: {{ ocp4_days_workload_rhdh_channel }}"
+      - "replicas: {{ ocp4_days_workload_rhdh_replicas }}"
+      - "enable_guest_auth: {{ ocp4_days_workload_rhdh_enable_guest_auth }}"
+      - "use_catalog_snapshot: {{ ocp4_days_workload_rhdh_use_catalog_snapshot }}"
+      - "starting_csv: {{ ocp4_days_workload_rhdh_starting_csv | default('') }}"
+  ignore_errors: true
+
+- name: Setting up Red Hat Developer Hub
+  debug:
+    msg: "Deploying Red Hat Developer Hub using the RHDH Operator"
+
+# Create the operator namespace
+- name: Create RHDH operator namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ ocp4_days_workload_rhdh_operator_namespace }}"
+
+# Create the instance namespace
+- name: Create RHDH instance namespace
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+
+# Install the RHDH Operator
+- name: Install Red Hat Developer Hub Operator
+  ansible.builtin.include_role:
+    name: install_operator
+  vars:
+    install_operator_action: install
+    install_operator_name: rhdh
+    install_operator_namespace: "{{ ocp4_days_workload_rhdh_operator_namespace }}"
+    install_operator_channel: "{{ ocp4_days_workload_rhdh_channel }}"
+    install_operator_catalog: redhat-operators
+    install_operator_automatic_install_plan_approval: "{{ ocp4_days_workload_rhdh_automatic_install_plan_approval }}"
+    install_operator_starting_csv: "{{ ocp4_days_workload_rhdh_starting_csv }}"
+    install_operator_catalogsource_setup: "{{ ocp4_days_workload_rhdh_use_catalog_snapshot }}"
+    install_operator_catalogsource_name: "{{ ocp4_days_workload_rhdh_catalogsource_name }}"
+    install_operator_catalogsource_namespace: openshift-marketplace
+    install_operator_catalogsource_image: "{{ ocp4_days_workload_rhdh_catalog_snapshot_image }}"
+    install_operator_catalogsource_image_tag: "{{ ocp4_days_workload_rhdh_catalog_snapshot_image_tag }}"
+
+# Wait for operator to be ready
+- name: Wait for RHDH operator to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ ocp4_days_workload_rhdh_operator_namespace }}"
+    label_selectors:
+      - app=rhdh-operator
+  register: r_rhdh_operator
+  until:
+    - r_rhdh_operator.resources | length > 0
+    - r_rhdh_operator.resources[0].status.readyReplicas is defined
+    - r_rhdh_operator.resources[0].status.readyReplicas | int >= 1
+  retries: 30
+  delay: 10
+
+# Create registry auth secret for the install-dynamic-plugins init container.
+# RHDH v1.9.0+ uses skopeo to pull the plugin catalog index from registry.redhat.io,
+# which needs credentials from this secret. We copy from the cluster's global pull secret.
+- name: Get global pull secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: pull-secret
+    namespace: openshift-config
+  register: r_pull_secret
+
+- name: Create registry auth secret for dynamic plugins
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: dynamic-plugins-registry-auth
+        namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+      data:
+        auth.json: "{{ r_pull_secret.resources[0].data['.dockerconfigjson'] }}"
+  when: r_pull_secret.resources | length > 0
+
+# Create guest auth ConfigMap if enabled
+- name: Create guest auth ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: app-config-rhdh
+        namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+      data:
+        app-config-rhdh.yaml: |
+          auth:
+            environment: development
+            providers:
+              guest:
+                dangerouslyAllowOutsideDevelopment: true
+  when: ocp4_days_workload_rhdh_enable_guest_auth | bool
+
+# Create the Backstage CR
+- name: Create Red Hat Developer Hub Instance
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rhdh.redhat.com/v1alpha3
+      kind: Backstage
+      metadata:
+        name: "{{ ocp4_days_workload_rhdh_instance_name }}"
+        namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+      spec:
+        application:
+          appConfig:
+            configMaps: "{{ [{'name': 'app-config-rhdh'}] if ocp4_days_workload_rhdh_enable_guest_auth else [] }}"
+            mountPath: /opt/app-root/src
+          extraFiles:
+            mountPath: /opt/app-root/src
+          replicas: "{{ ocp4_days_workload_rhdh_replicas }}"
+          route:
+            enabled: true
+        database:
+          enableLocalDb: true
+
+# Capture RHDH state before waiting — this always appears in the job log
+# so if the wait fails, we have diagnostics to debug with
+- name: DEBUG - RHDH pre-wait state
+  shell: |
+    echo "=== RHDH Pods ==="
+    oc get pods -n {{ ocp4_days_workload_rhdh_instance_namespace }} -o wide 2>/dev/null || echo "No pods found"
+    echo ""
+    echo "=== RHDH Pod Events ==="
+    oc get events -n {{ ocp4_days_workload_rhdh_instance_namespace }} --sort-by='.lastTimestamp' 2>/dev/null | tail -15
+    echo ""
+    echo "=== Init Container Logs ==="
+    oc logs -n {{ ocp4_days_workload_rhdh_instance_namespace }} -l rhdh.redhat.com/app=backstage-{{ ocp4_days_workload_rhdh_instance_name }} -c install-dynamic-plugins --tail=20 2>/dev/null || echo "Init container not started yet"
+    echo ""
+    echo "=== Deployment Conditions ==="
+    oc get deployment backstage-{{ ocp4_days_workload_rhdh_instance_name }} -n {{ ocp4_days_workload_rhdh_instance_namespace }} -o jsonpath='{.status.conditions}' 2>/dev/null | python3 -m json.tool || echo "Deployment not created yet"
+  register: r_rhdh_debug
+  ignore_errors: true
+
+- name: DEBUG - Display RHDH pre-wait state
+  debug:
+    msg: "{{ r_rhdh_debug.stdout_lines | default(['No debug output']) }}"
+  ignore_errors: true
+
+# Wait for Backstage to be ready
+- name: Wait for Backstage deployment to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+    name: "backstage-{{ ocp4_days_workload_rhdh_instance_name }}"
+  register: r_backstage_deployment
+  until:
+    - r_backstage_deployment.resources | length > 0
+    - r_backstage_deployment.resources[0].status.readyReplicas is defined
+    - r_backstage_deployment.resources[0].status.readyReplicas | int >= 1
+  retries: 40
+  delay: 20
+
+# Get the route URL
+- name: Get Backstage route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+    name: "backstage-{{ ocp4_days_workload_rhdh_instance_name }}"
+  register: r_backstage_route
+
+- name: Set Backstage URL fact
+  set_fact:
+    ocp4_days_workload_rhdh_url: "https://{{ r_backstage_route.resources[0].spec.host }}"
+  when: r_backstage_route.resources | length > 0
+
+- name: Print Backstage URL
+  debug:
+    msg: "Red Hat Developer Hub is available at: {{ ocp4_days_workload_rhdh_url | default('URL not available') }}"
+  when: not silent | bool
+
+# Create console link for app launcher
+- name: Create ConsoleLink for Developer Hub
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: console.openshift.io/v1
+      kind: ConsoleLink
+      metadata:
+        name: developer-hub
+      spec:
+        applicationMenu:
+          section: Red Hat Applications
+          imageURL: 'https://raw.githubusercontent.com/jnewsome97/openshift-days-ops-track-showroom-v2/main/content/modules/ROOT/images/rhdh-icon.png'
+        href: "{{ ocp4_days_workload_rhdh_url }}"
+        location: ApplicationMenu
+        text: Red Hat Developer Hub
+  when: r_backstage_route.resources | length > 0
+
+# ==============================================================================
+# WORKSHOP SETUP - populate RHDH with teams, workloads, plugins, and template
+# ==============================================================================
+
+- name: Populate RHDH for workshop
+  when: ocp4_days_workload_rhdh_setup_workshop | bool
+  block:
+
+  # --- Service Account + RBAC ---
+  - name: Create RHDH Kubernetes plugin service account and RBAC
+    kubernetes.core.k8s:
+      state: present
+      definition: "{{ item }}"
+    loop:
+      - apiVersion: v1
+        kind: ServiceAccount
+        metadata:
+          name: rhdh-kubernetes-plugin
+          namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        metadata:
+          name: rhdh-cluster-reader
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: cluster-reader
+        subjects:
+          - kind: ServiceAccount
+            name: rhdh-kubernetes-plugin
+            namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRole
+        metadata:
+          name: rhdh-scaffolder
+        rules:
+          - apiGroups: [""]
+            resources: ["namespaces", "services", "configmaps"]
+            verbs: ["get", "list", "create", "update", "patch"]
+          - apiGroups: ["apps"]
+            resources: ["deployments"]
+            verbs: ["get", "list", "create", "update", "patch"]
+          - apiGroups: ["route.openshift.io"]
+            resources: ["routes"]
+            verbs: ["get", "list", "create", "update", "patch"]
+      - apiVersion: rbac.authorization.k8s.io/v1
+        kind: ClusterRoleBinding
+        metadata:
+          name: rhdh-scaffolder-binding
+        roleRef:
+          apiGroup: rbac.authorization.k8s.io
+          kind: ClusterRole
+          name: rhdh-scaffolder
+        subjects:
+          - kind: ServiceAccount
+            name: rhdh-kubernetes-plugin
+            namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+
+  # --- Team workloads ---
+  - name: Create team namespaces
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: Namespace
+        metadata:
+          name: "{{ item }}"
+    loop:
+      - payments-team
+      - inventory-team
+      - platform-services
+      - ops-track-demo
+
+  - name: Create team deployments
+    shell: |
+      oc create deployment {{ item.name }} --image={{ item.image }} -n {{ item.namespace }} 2>/dev/null || true
+    loop:
+      - { name: payments-api, namespace: payments-team, image: "registry.access.redhat.com/ubi9/httpd-24" }
+      - { name: payments-processor, namespace: payments-team, image: "registry.access.redhat.com/ubi9/httpd-24" }
+      - { name: payments-gateway, namespace: payments-team, image: "registry.access.redhat.com/ubi9/httpd-24" }
+      - { name: inventory-api, namespace: inventory-team, image: "registry.access.redhat.com/ubi9/httpd-24" }
+      - { name: inventory-worker, namespace: inventory-team, image: "registry.access.redhat.com/ubi9/httpd-24" }
+      - { name: inventory-db-sync, namespace: inventory-team, image: "registry.access.redhat.com/ubi9/httpd-24" }
+      - { name: notification-service, namespace: platform-services, image: "registry.access.redhat.com/ubi9/httpd-24" }
+      - { name: weather-api, namespace: ops-track-demo, image: "registry.access.redhat.com/ubi9/httpd-24" }
+      - { name: weather-backend, namespace: ops-track-demo, image: "registry.access.redhat.com/ubi9/httpd-24" }
+      - { name: weather-cache, namespace: ops-track-demo, image: "registry.access.redhat.com/ubi9/httpd-24" }
+      - { name: weather-frontend, namespace: ops-track-demo, image: "registry.access.redhat.com/ubi9/httpd-24" }
+      - { name: weather-proxy, namespace: ops-track-demo, image: "registry.access.redhat.com/ubi9/httpd-24" }
+    loop_control:
+      label: "{{ item.name }}"
+
+  - name: Create crashlooping deployment for troubleshooting exercise
+    shell: >-
+      oc create deployment inventory-db-migrator
+      --image=registry.access.redhat.com/ubi9/ubi-minimal
+      -n inventory-team 2>/dev/null
+      -- /bin/sh -c "echo 'FATAL: Cannot connect to database at postgres.inventory-team:5432 - connection refused' && sleep 2 && exit 1" || true
+
+  - name: Label deployments for RHDH discovery and Topology plugin
+    shell: >-
+      oc patch deployment {{ item.name }} -n {{ item.namespace }} --type=json
+      -p '[{"op":"add","path":"/spec/template/metadata/labels/backstage.io~1kubernetes-id","value":"{{ item.backstage_id }}"},{"op":"add","path":"/metadata/labels/backstage.io~1kubernetes-id","value":"{{ item.backstage_id }}"},{"op":"add","path":"/metadata/labels/app.kubernetes.io~1part-of","value":"{{ item.backstage_id }}"}]'
+    loop:
+      - { name: payments-api, namespace: payments-team, backstage_id: payments-platform }
+      - { name: payments-processor, namespace: payments-team, backstage_id: payments-platform }
+      - { name: payments-gateway, namespace: payments-team, backstage_id: payments-platform }
+      - { name: inventory-api, namespace: inventory-team, backstage_id: inventory-system }
+      - { name: inventory-worker, namespace: inventory-team, backstage_id: inventory-system }
+      - { name: inventory-db-sync, namespace: inventory-team, backstage_id: inventory-system }
+      - { name: inventory-db-migrator, namespace: inventory-team, backstage_id: inventory-system }
+      - { name: notification-service, namespace: platform-services, backstage_id: notification-service }
+      - { name: weather-api, namespace: ops-track-demo, backstage_id: weather-app }
+      - { name: weather-backend, namespace: ops-track-demo, backstage_id: weather-app }
+      - { name: weather-cache, namespace: ops-track-demo, backstage_id: weather-app }
+      - { name: weather-frontend, namespace: ops-track-demo, backstage_id: weather-app }
+      - { name: weather-proxy, namespace: ops-track-demo, backstage_id: weather-app }
+    loop_control:
+      label: "{{ item.name }}"
+    ignore_errors: true
+
+  - name: Create Services for Topology plugin
+    shell: oc expose deployment/{{ item.name }} --port=8080 -n {{ item.namespace }} 2>/dev/null || true
+    loop:
+      - { name: payments-api, namespace: payments-team }
+      - { name: payments-processor, namespace: payments-team }
+      - { name: payments-gateway, namespace: payments-team }
+      - { name: inventory-api, namespace: inventory-team }
+      - { name: inventory-worker, namespace: inventory-team }
+      - { name: inventory-db-sync, namespace: inventory-team }
+      - { name: inventory-db-migrator, namespace: inventory-team }
+      - { name: notification-service, namespace: platform-services }
+      - { name: weather-api, namespace: ops-track-demo }
+      - { name: weather-backend, namespace: ops-track-demo }
+      - { name: weather-cache, namespace: ops-track-demo }
+      - { name: weather-frontend, namespace: ops-track-demo }
+      - { name: weather-proxy, namespace: ops-track-demo }
+    loop_control:
+      label: "{{ item.name }}"
+    ignore_errors: true
+
+  # --- Generate SA token ---
+  - name: Generate long-lived SA token for template
+    shell: oc create token rhdh-kubernetes-plugin -n {{ ocp4_days_workload_rhdh_instance_namespace }} --duration=8760h
+    register: r_sa_token_template
+
+  - name: Generate SA token for Kubernetes plugin secret
+    shell: oc create token rhdh-kubernetes-plugin -n {{ ocp4_days_workload_rhdh_instance_namespace }} --duration=8760h
+    register: r_sa_token_secret
+
+  - name: Create SA token secret for Kubernetes plugin
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: Secret
+        metadata:
+          name: rhdh-kubernetes-plugin-token
+          namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+        stringData:
+          K8S_PLUGIN_SA_TOKEN: "{{ r_sa_token_secret.stdout }}"
+
+  # --- Dynamic plugins ---
+  - name: Create dynamic plugins ConfigMap
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: dynamic-plugins-rhdh
+          namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+        data:
+          dynamic-plugins.yaml: |
+            includes:
+              - dynamic-plugins.default.yaml
+            plugins:
+              - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
+                disabled: false
+              - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes
+                disabled: false
+              - package: ./dynamic-plugins/dist/backstage-community-plugin-topology
+                disabled: false
+              - package: ./dynamic-plugins/dist/backstage-community-plugin-scaffolder-backend-module-kubernetes-dynamic
+                disabled: false
+              - package: ./dynamic-plugins/dist/roadiehq-scaffolder-backend-module-http-request-dynamic
+                disabled: false
+              - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-quickstart
+                disabled: true
+
+  # --- Catalog + template ---
+  - name: Set cluster URLs
+    set_fact:
+      _rhdh_api_url: "{{ ocp4_days_workload_rhdh_api_url | default(lookup('pipe', 'oc whoami --show-server')) }}"
+      _rhdh_console_url: "{{ ocp4_days_workload_rhdh_console_url | default(lookup('pipe', \"oc get route console -n openshift-console -o jsonpath='https://{.spec.host}'\")) }}"
+
+  - name: Create catalog and template ConfigMap
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: pre-built-catalog
+          namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+        data:
+          catalog-info.yaml: |
+            apiVersion: backstage.io/v1alpha1
+            kind: Group
+            metadata:
+              name: ops-team
+              description: Operations team responsible for platform infrastructure
+            spec:
+              type: team
+              children: []
+            ---
+            apiVersion: backstage.io/v1alpha1
+            kind: Group
+            metadata:
+              name: payments-team
+              description: Payments processing team
+            spec:
+              type: team
+              children: []
+            ---
+            apiVersion: backstage.io/v1alpha1
+            kind: Group
+            metadata:
+              name: inventory-team
+              description: Inventory management team
+            spec:
+              type: team
+              children: []
+            ---
+            apiVersion: backstage.io/v1alpha1
+            kind: Group
+            metadata:
+              name: platform-team
+              description: Platform engineering team
+            spec:
+              type: team
+              children: []
+            ---
+            apiVersion: backstage.io/v1alpha1
+            kind: Component
+            metadata:
+              name: weather-app
+              description: Weather microservices application
+              annotations:
+                backstage.io/kubernetes-namespace: ops-track-demo
+                backstage.io/kubernetes-id: weather-app
+                backstage.io/kubernetes-label-selector: backstage.io/kubernetes-id=weather-app
+              tags: [openshift, ops-track, httpd]
+            spec:
+              type: service
+              lifecycle: production
+              owner: ops-team
+            ---
+            apiVersion: backstage.io/v1alpha1
+            kind: Component
+            metadata:
+              name: backup-demo-app
+              description: Web application protected by OADP backup and restore
+              annotations:
+                backstage.io/kubernetes-namespace: backup-demo
+                backstage.io/kubernetes-id: backup-demo-app
+                backstage.io/kubernetes-label-selector: backstage.io/kubernetes-id=backup-demo-app
+              tags: [openshift, ops-track, oadp]
+            spec:
+              type: service
+              lifecycle: production
+              owner: ops-team
+            ---
+            apiVersion: backstage.io/v1alpha1
+            kind: Component
+            metadata:
+              name: payments-platform
+              description: Payment processing microservices
+              annotations:
+                backstage.io/kubernetes-namespace: payments-team
+                backstage.io/kubernetes-id: payments-platform
+                backstage.io/kubernetes-label-selector: backstage.io/kubernetes-id=payments-platform
+              tags: [openshift, payments, pci]
+            spec:
+              type: service
+              lifecycle: production
+              owner: payments-team
+            ---
+            apiVersion: backstage.io/v1alpha1
+            kind: Component
+            metadata:
+              name: inventory-system
+              description: Inventory tracking system
+              annotations:
+                backstage.io/kubernetes-namespace: inventory-team
+                backstage.io/kubernetes-id: inventory-system
+                backstage.io/kubernetes-label-selector: backstage.io/kubernetes-id=inventory-system
+              tags: [openshift, inventory, supply-chain]
+            spec:
+              type: service
+              lifecycle: production
+              owner: inventory-team
+            ---
+            apiVersion: backstage.io/v1alpha1
+            kind: Component
+            metadata:
+              name: notification-service
+              description: Centralized notification service
+              annotations:
+                backstage.io/kubernetes-namespace: platform-services
+                backstage.io/kubernetes-id: notification-service
+                backstage.io/kubernetes-label-selector: backstage.io/kubernetes-id=notification-service
+              tags: [openshift, platform, notifications]
+            spec:
+              type: service
+              lifecycle: production
+              owner: platform-team
+            ---
+            apiVersion: backstage.io/v1alpha1
+            kind: Component
+            metadata:
+              name: order-tracker
+              description: Real-time order tracking service - not yet deployed
+              annotations:
+                backstage.io/kubernetes-namespace: order-tracker
+                backstage.io/kubernetes-id: order-tracker
+                backstage.io/kubernetes-label-selector: backstage.io/kubernetes-id=order-tracker
+              tags: [openshift, orders, pending-deployment]
+            spec:
+              type: service
+              lifecycle: development
+              owner: inventory-team
+            ---
+            apiVersion: scaffolder.backstage.io/v1beta3
+            kind: Template
+            metadata:
+              name: deploy-service
+              title: Deploy a New Service
+              description: Self-service namespace provisioning for new services
+              tags: [openshift, self-service]
+            spec:
+              owner: ops-team
+              type: service
+              parameters:
+                - title: Service Details
+                  required: [serviceName, teamName, description]
+                  properties:
+                    serviceName:
+                      title: Service Name
+                      type: string
+                      description: Name of the new service (lowercase, no spaces)
+                      pattern: '^[a-z0-9-]+$'
+                      ui:autofocus: true
+                    teamName:
+                      title: Team Name
+                      type: string
+                      description: Which team owns this service?
+                      enum: [payments-team, inventory-team, platform-team, ops-team]
+                    description:
+                      title: Description
+                      type: string
+                      description: Brief description of the service
+                    lifecycle:
+                      title: Lifecycle
+                      type: string
+                      description: Service lifecycle stage
+                      default: production
+                      enum: [development, staging, production]
+              steps:
+                - id: create-namespace
+                  name: Create OpenShift Namespace
+                  action: kubernetes:create-namespace
+                  input:
+                    namespace: ${{ "{{" }} parameters.serviceName {{ "}}" }}
+                    url: {{ _rhdh_api_url }}
+                    token: {{ r_sa_token_template.stdout }}
+                    skipTLSVerify: true
+                    labels: 'backstage.io/service=${{ "{{" }} parameters.serviceName {{ "}}" }};team=${{ "{{" }} parameters.teamName {{ "}}" }}'
+                - id: deploy-api
+                  name: Deploy API Service
+                  action: http:backstage:request
+                  input:
+                    method: POST
+                    path: kubernetes/proxy/apis/apps/v1/namespaces/${{ "{{" }} parameters.serviceName {{ "}}" }}/deployments
+                    headers:
+                      Content-Type: application/json
+                    body:
+                      apiVersion: apps/v1
+                      kind: Deployment
+                      metadata:
+                        name: ${{ "{{" }} parameters.serviceName {{ "}}" }}-api
+                        namespace: ${{ "{{" }} parameters.serviceName {{ "}}" }}
+                      spec:
+                        replicas: 1
+                        selector:
+                          matchLabels:
+                            app: ${{ "{{" }} parameters.serviceName {{ "}}" }}-api
+                        template:
+                          metadata:
+                            labels:
+                              app: ${{ "{{" }} parameters.serviceName {{ "}}" }}-api
+                              backstage.io/kubernetes-id: ${{ "{{" }} parameters.serviceName {{ "}}" }}
+                          spec:
+                            containers:
+                              - name: httpd
+                                image: registry.access.redhat.com/ubi9/httpd-24
+                                ports:
+                                  - containerPort: 8080
+                - id: deploy-worker
+                  name: Deploy Worker Service
+                  action: http:backstage:request
+                  input:
+                    method: POST
+                    path: kubernetes/proxy/apis/apps/v1/namespaces/${{ "{{" }} parameters.serviceName {{ "}}" }}/deployments
+                    headers:
+                      Content-Type: application/json
+                    body:
+                      apiVersion: apps/v1
+                      kind: Deployment
+                      metadata:
+                        name: ${{ "{{" }} parameters.serviceName {{ "}}" }}-worker
+                        namespace: ${{ "{{" }} parameters.serviceName {{ "}}" }}
+                      spec:
+                        replicas: 1
+                        selector:
+                          matchLabels:
+                            app: ${{ "{{" }} parameters.serviceName {{ "}}" }}-worker
+                        template:
+                          metadata:
+                            labels:
+                              app: ${{ "{{" }} parameters.serviceName {{ "}}" }}-worker
+                              backstage.io/kubernetes-id: ${{ "{{" }} parameters.serviceName {{ "}}" }}
+                          spec:
+                            containers:
+                              - name: httpd
+                                image: registry.access.redhat.com/ubi9/httpd-24
+                                ports:
+                                  - containerPort: 8080
+                - id: log-success
+                  name: Log Result
+                  action: debug:log
+                  input:
+                    message: 'Service ${{ "{{" }} parameters.serviceName {{ "}}" }} deployed for team ${{ "{{" }} parameters.teamName {{ "}}" }}'
+              output:
+                text:
+                  - title: Service Deployed
+                    content: |
+                      Service ${{ "{{" }} parameters.serviceName {{ "}}" }} has been deployed for ${{ "{{" }} parameters.teamName {{ "}}" }}.
+
+  # --- Update app-config with cluster connection ---
+  - name: Update app-config with Kubernetes plugin settings
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          name: app-config-rhdh
+          namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+        data:
+          app-config-rhdh.yaml: |
+            auth:
+              environment: development
+              providers:
+                guest:
+                  dangerouslyAllowOutsideDevelopment: true
+            backend:
+              reading:
+                allow:
+                  - host: github.com
+                  - host: raw.githubusercontent.com
+            kubernetes:
+              serviceLocatorMethod:
+                type: multiTenant
+              clusterLocatorMethods:
+                - type: config
+                  clusters:
+                    - name: openshift
+                      url: {{ _rhdh_api_url }}
+                      authProvider: serviceAccount
+                      skipTLSVerify: true
+                      serviceAccountToken: ${K8S_PLUGIN_SA_TOKEN}
+                      dashboardUrl: {{ _rhdh_console_url }}
+                      dashboardApp: openshift
+            catalog:
+              locations:
+                - type: file
+                  target: /opt/app-root/src/catalog-info.yaml
+                  rules:
+                    - allow: [Component, Group, Template]
+
+  # --- Patch Backstage CR to wire everything up ---
+  - name: Patch Backstage CR with plugins, secrets, and catalog
+    kubernetes.core.k8s:
+      state: present
+      definition:
+        apiVersion: rhdh.redhat.com/v1alpha3
+        kind: Backstage
+        metadata:
+          name: "{{ ocp4_days_workload_rhdh_instance_name }}"
+          namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+        spec:
+          application:
+            appConfig:
+              configMaps:
+                - name: app-config-rhdh
+              mountPath: /opt/app-root/src
+            dynamicPluginsConfigMapName: dynamic-plugins-rhdh
+            extraEnvs:
+              envs:
+                - name: NODE_TLS_REJECT_UNAUTHORIZED
+                  value: "0"
+              secrets:
+                - name: rhdh-kubernetes-plugin-token
+            extraFiles:
+              mountPath: /opt/app-root/src
+              configMaps:
+                - name: pre-built-catalog
+            replicas: 1
+            route:
+              enabled: true
+          database:
+            enableLocalDb: true
+
+  - name: Wait for RHDH rollout after workshop config
+    kubernetes.core.k8s_info:
+      api_version: apps/v1
+      kind: Deployment
+      namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+      name: "backstage-{{ ocp4_days_workload_rhdh_instance_name }}"
+    register: r_backstage_workshop
+    until:
+      - r_backstage_workshop.resources | length > 0
+      - r_backstage_workshop.resources[0].status.readyReplicas is defined
+      - r_backstage_workshop.resources[0].status.readyReplicas | int >= 1
+    retries: 40
+    delay: 20
+
+- name: Workload tasks complete
+  debug:
+    msg: "Red Hat Developer Hub deployed and configured for workshop"
+  when: not silent | bool

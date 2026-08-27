@@ -1,0 +1,31 @@
+---
+# DAYS version of ocp4_workload_rhdh
+# Simple RHDH deployment using the operator with guest auth enabled
+# No complex dependencies - just the operator and a Backstage CR
+
+silent: false
+
+# Namespace for RHDH operator and instance
+ocp4_days_workload_rhdh_operator_namespace: rhdh-operator
+ocp4_days_workload_rhdh_instance_namespace: backstage
+
+# Operator settings
+ocp4_days_workload_rhdh_channel: fast
+ocp4_days_workload_rhdh_automatic_install_plan_approval: true
+ocp4_days_workload_rhdh_starting_csv: ""
+
+# Catalog snapshot settings (optional)
+ocp4_days_workload_rhdh_use_catalog_snapshot: false
+ocp4_days_workload_rhdh_catalogsource_name: ""
+ocp4_days_workload_rhdh_catalog_snapshot_image: ""
+ocp4_days_workload_rhdh_catalog_snapshot_image_tag: ""
+
+# Backstage instance settings
+ocp4_days_workload_rhdh_instance_name: developer-hub
+ocp4_days_workload_rhdh_replicas: 1
+
+# Enable guest authentication (required for workshop)
+ocp4_days_workload_rhdh_enable_guest_auth: true
+
+# Populate RHDH with teams, workloads, plugins, catalog, and template
+ocp4_days_workload_rhdh_setup_workshop: true

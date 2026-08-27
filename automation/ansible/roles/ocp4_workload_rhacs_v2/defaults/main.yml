@@ -1,0 +1,66 @@
+---
+ocp4_workload_rhacs_install_operator_namespace: rhacs-operator
+ocp4_workload_rhacs_install_operator_channel: rhacs-4.9
+
+ocp4_workload_rhacs_install_operator_use_catalog_snapshot: false
+ocp4_workload_rhacs_install_operator_catalog_source_image: quay.io/rhpds/olm_snapshot_redhat_catalog
+ocp4_workload_rhacs_install_operator_catalog_source_tag: "v4.15_2024_04_08"
+
+ocp4_workload_rhacs_automatic_install_plan_approval: true
+ocp4_workload_rhacs_install_operator_starting_csv: ""
+
+ocp4_workload_rhacs_central_namespace: stackrox
+ocp4_workload_rhacs_enable_central_scanner_v4: false
+ocp4_workload_rhacs_enable_route_certs: true
+ocp4_workload_rhacs_collector_config_enable: false
+ocp4_workload_rhacs_collector_config_expternal_ips_enable: true
+ocp4_workload_rhacs_central_admin_password: ""
+ocp4_workload_rhacs_central_admin_password_length: 18
+
+# Central Pod Resource Overrides (disabled by default - no change to existing behaviour)
+ocp4_workload_rhacs_central_resources_update: false
+ocp4_workload_rhacs_central_requests_cpu: "1500m"
+ocp4_workload_rhacs_central_requests_memory: "4Gi"
+ocp4_workload_rhacs_central_limits_cpu: "4"
+ocp4_workload_rhacs_central_limits_memory: "8Gi"
+
+# Central Database Pod Resource Overrides
+ocp4_workload_rhacs_central_db_resources_update: false
+ocp4_workload_rhacs_central_db_requests_cpu: "4000m"
+ocp4_workload_rhacs_central_db_requests_memory: "8Gi"
+ocp4_workload_rhacs_central_db_limits_cpu: "4"
+ocp4_workload_rhacs_central_db_limits_memory: "8Gi"
+
+# Scanner (v2) Resource Overrides
+ocp4_workload_rhacs_scanner_resources_update: false
+ocp4_workload_rhacs_scanner_requests_cpu: "1000m"
+ocp4_workload_rhacs_scanner_requests_memory: "1500Mi"
+ocp4_workload_rhacs_scanner_limits_cpu: "2"
+ocp4_workload_rhacs_scanner_limits_memory: "3Gi"
+
+# Scanner V4 Resource and Replica Overrides
+ocp4_workload_rhacs_scanner_v4_resources_update: false
+ocp4_workload_rhacs_scanner_v4_indexer_replicas: 3
+ocp4_workload_rhacs_scanner_v4_indexer_requests_cpu: "2"
+ocp4_workload_rhacs_scanner_v4_indexer_requests_memory: "1500Mi"
+ocp4_workload_rhacs_scanner_v4_indexer_limits_cpu: "2"
+ocp4_workload_rhacs_scanner_v4_indexer_limits_memory: "3Gi"
+ocp4_workload_rhacs_scanner_v4_matcher_replicas: 3
+ocp4_workload_rhacs_scanner_v4_matcher_requests_cpu: "1"
+ocp4_workload_rhacs_scanner_v4_matcher_requests_memory: "1500Mi"
+ocp4_workload_rhacs_scanner_v4_matcher_limits_cpu: "2"
+ocp4_workload_rhacs_scanner_v4_matcher_limits_memory: "7Gi"
+ocp4_workload_rhacs_scanner_v4_db_requests_cpu: "200m"
+ocp4_workload_rhacs_scanner_v4_db_requests_memory: "3Gi"
+ocp4_workload_rhacs_scanner_v4_db_limits_cpu: "2"
+ocp4_workload_rhacs_scanner_v4_db_limits_memory: "4Gi"
+
+# Sensor Resource Overrides (applied to SecuredCluster CR)
+ocp4_workload_rhacs_sensor_resources_update: false
+ocp4_workload_rhacs_sensor_requests_cpu: "2000m"
+ocp4_workload_rhacs_sensor_requests_memory: "4Gi"
+ocp4_workload_rhacs_sensor_limits_cpu: "4"
+ocp4_workload_rhacs_sensor_limits_memory: "8Gi"
+
+# Central Storage Class Override (empty = cluster default)
+ocp4_workload_rhacs_central_storage_class: ""

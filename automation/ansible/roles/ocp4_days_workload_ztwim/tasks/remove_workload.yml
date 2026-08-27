@@ -1,0 +1,32 @@
+---
+- name: Remove ZTWIM Subscription
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ ocp4_days_workload_ztwim_package }}"
+    namespace: "{{ ocp4_days_workload_ztwim_namespace }}"
+
+- name: Remove ZTWIM CSV
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ ocp4_days_workload_ztwim_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/zero-trust-workload-identity-manager.zero-trust-workload-identity-manager"
+
+- name: Remove OperatorGroup
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1
+    kind: OperatorGroup
+    name: "{{ ocp4_days_workload_ztwim_package }}"
+    namespace: "{{ ocp4_days_workload_ztwim_namespace }}"
+
+- name: Remove namespace
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_days_workload_ztwim_namespace }}"

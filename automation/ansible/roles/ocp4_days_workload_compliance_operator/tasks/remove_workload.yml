@@ -1,0 +1,40 @@
+---
+- name: Remove Compliance Operator workload
+  ansible.builtin.debug:
+    msg: "Removing Compliance Operator workload"
+
+- name: Remove Compliance Operator Subscription
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: compliance-operator
+    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+
+- name: Remove Compliance Operator CSV
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/compliance-operator.openshift-compliance"
+
+- name: Remove OperatorGroup
+  kubernetes.core.k8s:
+    state: absent
+    api_version: operators.coreos.com/v1
+    kind: OperatorGroup
+    name: compliance-operator
+    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+
+- name: Remove openshift-compliance namespace
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+
+- name: Compliance Operator removal complete
+  ansible.builtin.debug:
+    msg: "Compliance Operator removed successfully"

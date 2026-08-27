@@ -1,0 +1,12 @@
+---
+silent: false
+
+# Disable unused default catalog sources to stop image churn.
+# These refresh periodically and leave ~1.2 GB stale images per catalog per node.
+# certified-operators: 0 subscriptions use it in this workshop
+# redhat-marketplace: 0 subscriptions use it in this workshop
+# community-operators: only served image puller operator (removed from workloads)
+ocp4_workload_cluster_cleanup_disable_catalogs:
+- certified-operators
+- redhat-marketplace
+- community-operators

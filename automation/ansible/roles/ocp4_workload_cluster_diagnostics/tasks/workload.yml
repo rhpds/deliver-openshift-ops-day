@@ -1,0 +1,549 @@
+---
+# ==============================================================================
+# COMPREHENSIVE CLUSTER DIAGNOSTICS
+# Runs at end of deployment to capture full cluster state for troubleshooting.
+# Every task uses ignore_errors so this NEVER blocks the deployment.
+# ==============================================================================
+
+- name: DIAG - Cluster diagnostics starting
+  debug:
+    msg: "============ CLUSTER DIAGNOSTICS CHECKPOINT ============"
+
+# ==============================================================================
+# 1. NODE HEALTH AND RESOURCES
+# ==============================================================================
+- name: DIAG - Node resource usage and capacity
+  shell: |
+    echo "====================================================================="
+    echo "1. NODE RESOURCES"
+    echo "====================================================================="
+    echo ""
+    echo "=== CURRENT USAGE ==="
+    oc adm top nodes 2>/dev/null || echo "Metrics server not available"
+    echo ""
+    echo "=== ALLOCATABLE RESOURCES ==="
+    oc get nodes -o custom-columns=\
+    NAME:.metadata.name,\
+    CPU_ALLOC:.status.allocatable.cpu,\
+    MEM_ALLOC:.status.allocatable.memory,\
+    PODS_ALLOC:.status.allocatable.pods,\
+    CPU_CAP:.status.capacity.cpu,\
+    MEM_CAP:.status.capacity.memory 2>/dev/null || echo "Failed"
+    echo ""
+    echo "=== NODE CONDITIONS ==="
+    oc get nodes -o custom-columns=\
+    NAME:.metadata.name,\
+    READY:.status.conditions[-1].status,\
+    MEM_PRESSURE:.status.conditions[-4].status,\
+    DISK_PRESSURE:.status.conditions[-3].status,\
+    PID_PRESSURE:.status.conditions[-2].status 2>/dev/null || echo "Failed"
+    echo ""
+    echo "=== NODE ROLES ==="
+    oc get nodes -o custom-columns=NAME:.metadata.name,ROLES:.metadata.labels.node-role\\.kubernetes\\.io/worker 2>/dev/null || echo "Failed"
+  register: diag_nodes
+  ignore_errors: true
+
+- name: DIAG - Display node resources
+  debug:
+    msg: "{{ diag_nodes.stdout_lines | default(['no output']) }}"
+  when: diag_nodes is defined
+  ignore_errors: true
+
+# ==============================================================================
+# 2. POD OVERVIEW
+# ==============================================================================
+- name: DIAG - Pod counts and problem pods
+  shell: |
+    echo "====================================================================="
+    echo "2. POD OVERVIEW"
+    echo "====================================================================="
+    echo ""
+    echo "=== TOTAL PODS BY PHASE ==="
+    echo "Running: $(oc get pods -A --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)"
+    echo "Pending: $(oc get pods -A --field-selector=status.phase=Pending --no-headers 2>/dev/null | wc -l)"
+    echo "Failed: $(oc get pods -A --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l)"
+    echo "Succeeded: $(oc get pods -A --field-selector=status.phase=Succeeded --no-headers 2>/dev/null | wc -l)"
+    echo "Total: $(oc get pods -A --no-headers 2>/dev/null | wc -l)"
+    echo ""
+    echo "=== PODS PER NAMESPACE (top 30) ==="
+    oc get pods -A --no-headers 2>/dev/null | awk '{print $1}' | sort | uniq -c | sort -rn | head -30
+    echo ""
+    echo "=== PENDING PODS ==="
+    oc get pods -A --field-selector=status.phase=Pending -o custom-columns=\
+    NAMESPACE:.metadata.namespace,\
+    NAME:.metadata.name,\
+    NODE:.spec.nodeName,\
+    AGE:.metadata.creationTimestamp 2>/dev/null || echo "No pending pods"
+    echo ""
+    echo "=== FAILED PODS ==="
+    oc get pods -A --field-selector=status.phase=Failed -o custom-columns=\
+    NAMESPACE:.metadata.namespace,\
+    NAME:.metadata.name,\
+    REASON:.status.reason 2>/dev/null || echo "No failed pods"
+    echo ""
+    echo "=== CRASHLOOPING PODS (restart count > 3) ==="
+    oc get pods -A -o json 2>/dev/null | python3 -c "
+    import sys, json
+    data = json.load(sys.stdin)
+    for pod in data.get('items', []):
+        ns = pod['metadata']['namespace']
+        name = pod['metadata']['name']
+        for cs in pod.get('status', {}).get('containerStatuses', []):
+            if cs.get('restartCount', 0) > 3:
+                print(f'{ns}/{name} container={cs[\"name\"]} restarts={cs[\"restartCount\"]}')
+    " 2>/dev/null || echo "Failed to check restarts"
+    echo ""
+    echo "=== NOT READY PODS (Running but not all containers ready) ==="
+    oc get pods -A --field-selector=status.phase=Running -o json 2>/dev/null | python3 -c "
+    import sys, json
+    data = json.load(sys.stdin)
+    for pod in data.get('items', []):
+        ns = pod['metadata']['namespace']
+        name = pod['metadata']['name']
+        statuses = pod.get('status', {}).get('containerStatuses', [])
+        not_ready = [cs['name'] for cs in statuses if not cs.get('ready', False)]
+        if not_ready:
+            print(f'{ns}/{name} not_ready={not_ready}')
+    " 2>/dev/null | head -20 || echo "Failed"
+  register: diag_pods
+  ignore_errors: true
+
+- name: DIAG - Display pod overview
+  debug:
+    msg: "{{ diag_pods.stdout_lines | default(['no output']) }}"
+  when: diag_pods is defined
+  ignore_errors: true
+
+# ==============================================================================
+# 3. STORAGE
+# ==============================================================================
+- name: DIAG - Storage state
+  shell: |
+    echo "====================================================================="
+    echo "3. STORAGE"
+    echo "====================================================================="
+    echo ""
+    echo "=== STORAGE CLASSES ==="
+    oc get sc -o custom-columns=\
+    NAME:.metadata.name,\
+    PROVISIONER:.provisioner,\
+    BINDING:.volumeBindingMode,\
+    DEFAULT:.metadata.annotations.storageclass\\.kubernetes\\.io/is-default-class 2>/dev/null || echo "Failed"
+    echo ""
+    echo "=== ALL PVCs (non-Bound) ==="
+    oc get pvc -A --field-selector=status.phase!=Bound -o custom-columns=\
+    NAMESPACE:.metadata.namespace,\
+    NAME:.metadata.name,\
+    STATUS:.status.phase,\
+    STORAGECLASS:.spec.storageClassName,\
+    CAPACITY:.spec.resources.requests.storage 2>/dev/null || echo "All PVCs bound"
+    echo ""
+    echo "=== PVC COUNT BY NAMESPACE ==="
+    oc get pvc -A --no-headers 2>/dev/null | awk '{print $1}' | sort | uniq -c | sort -rn | head -15
+    echo ""
+    echo "=== PV SUMMARY ==="
+    echo "Total PVs: $(oc get pv --no-headers 2>/dev/null | wc -l)"
+    echo "Available: $(oc get pv --field-selector=status.phase=Available --no-headers 2>/dev/null | wc -l)"
+    echo "Bound: $(oc get pv --field-selector=status.phase=Bound --no-headers 2>/dev/null | wc -l)"
+    echo "Released: $(oc get pv --field-selector=status.phase=Released --no-headers 2>/dev/null | wc -l)"
+  register: diag_storage
+  ignore_errors: true
+
+- name: DIAG - Display storage state
+  debug:
+    msg: "{{ diag_storage.stdout_lines | default(['no output']) }}"
+  when: diag_storage is defined
+  ignore_errors: true
+
+# ==============================================================================
+# 4. OPERATOR STATUS
+# ==============================================================================
+- name: DIAG - Operator installation status
+  shell: |
+    echo "====================================================================="
+    echo "4. OPERATORS"
+    echo "====================================================================="
+    echo ""
+    echo "=== CSVs NOT SUCCEEDED ==="
+    oc get csv -A -o custom-columns=\
+    NAMESPACE:.metadata.namespace,\
+    NAME:.metadata.name,\
+    PHASE:.status.phase 2>/dev/null | grep -v Succeeded | head -20 || echo "All CSVs Succeeded"
+    echo ""
+    echo "=== ALL CSVs (summary) ==="
+    echo "Succeeded: $(oc get csv -A --no-headers 2>/dev/null | grep Succeeded | wc -l)"
+    echo "Installing: $(oc get csv -A --no-headers 2>/dev/null | grep Installing | wc -l)"
+    echo "Pending: $(oc get csv -A --no-headers 2>/dev/null | grep Pending | wc -l)"
+    echo "Failed: $(oc get csv -A --no-headers 2>/dev/null | grep Failed | wc -l)"
+    echo "Total: $(oc get csv -A --no-headers 2>/dev/null | wc -l)"
+    echo ""
+    echo "=== SUBSCRIPTIONS WITH ISSUES ==="
+    oc get subscriptions.operators.coreos.com -A -o json 2>/dev/null | python3 -c "
+    import sys, json
+    data = json.load(sys.stdin)
+    for sub in data.get('items', []):
+        ns = sub['metadata']['namespace']
+        name = sub['metadata']['name']
+        state = sub.get('status', {}).get('state', 'Unknown')
+        csv = sub.get('status', {}).get('installedCSV', 'none')
+        if state != 'AtLatestKnown':
+            print(f'{ns}/{name} state={state} csv={csv}')
+    " 2>/dev/null || echo "Failed to check subscriptions"
+    echo ""
+    echo "=== PENDING INSTALLPLANS ==="
+    oc get installplan -A -o custom-columns=\
+    NAMESPACE:.metadata.namespace,\
+    NAME:.metadata.name,\
+    APPROVED:.spec.approved,\
+    CSV:.spec.clusterServiceVersionNames 2>/dev/null | grep -v "Complete\|true" | head -10 || echo "All InstallPlans complete"
+    echo ""
+    echo "=== CATALOGSOURCES ==="
+    oc get catalogsource -A -o custom-columns=\
+    NAMESPACE:.metadata.namespace,\
+    NAME:.metadata.name,\
+    STATUS:.status.connectionState.lastObservedState 2>/dev/null || echo "Failed"
+  register: diag_operators
+  ignore_errors: true
+
+- name: DIAG - Display operator status
+  debug:
+    msg: "{{ diag_operators.stdout_lines | default(['no output']) }}"
+  when: diag_operators is defined
+  ignore_errors: true
+
+# ==============================================================================
+# 5. CLUSTER OPERATORS
+# ==============================================================================
+- name: DIAG - Cluster operator health
+  shell: |
+    echo "====================================================================="
+    echo "5. CLUSTER OPERATORS"
+    echo "====================================================================="
+    echo ""
+    echo "=== DEGRADED OR UNAVAILABLE ==="
+    oc get co -o json 2>/dev/null | python3 -c "
+    import sys, json
+    data = json.load(sys.stdin)
+    for co in data.get('items', []):
+        name = co['metadata']['name']
+        conditions = {c['type']: c for c in co.get('status', {}).get('conditions', [])}
+        avail = conditions.get('Available', {}).get('status', 'Unknown')
+        degrade = conditions.get('Degraded', {}).get('status', 'Unknown')
+        progress = conditions.get('Progressing', {}).get('status', 'Unknown')
+        if avail != 'True' or degrade == 'True':
+            msg = conditions.get('Degraded', {}).get('message', '') if degrade == 'True' else conditions.get('Available', {}).get('message', '')
+            print(f'{name}: Available={avail} Degraded={degrade} Progressing={progress}')
+            if msg:
+                print(f'  Message: {msg[:200]}')
+    " 2>/dev/null || echo "Failed"
+    echo ""
+    echo "=== PROGRESSING ==="
+    oc get co -o json 2>/dev/null | python3 -c "
+    import sys, json
+    data = json.load(sys.stdin)
+    for co in data.get('items', []):
+        name = co['metadata']['name']
+        conditions = {c['type']: c for c in co.get('status', {}).get('conditions', [])}
+        progress = conditions.get('Progressing', {}).get('status', 'Unknown')
+        if progress == 'True':
+            msg = conditions.get('Progressing', {}).get('message', '')
+            print(f'{name}: {msg[:200]}')
+    " 2>/dev/null || echo "None progressing"
+  register: diag_cluster_ops
+  ignore_errors: true
+
+- name: DIAG - Display cluster operator health
+  debug:
+    msg: "{{ diag_cluster_ops.stdout_lines | default(['no output']) }}"
+  when: diag_cluster_ops is defined
+  ignore_errors: true
+
+# ==============================================================================
+# 6. RESOURCE REQUESTS vs CAPACITY
+# ==============================================================================
+- name: DIAG - Resource allocation analysis
+  shell: |
+    echo "====================================================================="
+    echo "6. RESOURCE ALLOCATION"
+    echo "====================================================================="
+    echo ""
+    echo "=== TOTAL RESOURCE REQUESTS ACROSS ALL PODS ==="
+    oc get pods -A -o json 2>/dev/null | python3 -c "
+    import sys, json
+    data = json.load(sys.stdin)
+    total_cpu_m = 0
+    total_mem_mi = 0
+    for pod in data.get('items', []):
+        if pod.get('status', {}).get('phase') not in ('Running', 'Pending'):
+            continue
+        for c in pod.get('spec', {}).get('containers', []):
+            req = c.get('resources', {}).get('requests', {})
+            cpu = req.get('cpu', '0')
+            mem = req.get('memory', '0')
+            if cpu.endswith('m'):
+                total_cpu_m += int(cpu[:-1])
+            elif cpu:
+                try:
+                    total_cpu_m += int(float(cpu) * 1000)
+                except:
+                    pass
+            if mem.endswith('Gi'):
+                total_mem_mi += int(float(mem[:-2]) * 1024)
+            elif mem.endswith('Mi'):
+                total_mem_mi += int(float(mem[:-2]))
+            elif mem.endswith('Ki'):
+                total_mem_mi += int(float(mem[:-2]) / 1024)
+    print(f'Total CPU requested: {total_cpu_m}m ({total_cpu_m/1000:.1f} cores)')
+    print(f'Total Memory requested: {total_mem_mi}Mi ({total_mem_mi/1024:.1f} Gi)')
+    " 2>/dev/null || echo "Failed"
+    echo ""
+    echo "=== TOP 20 PODS BY MEMORY REQUEST ==="
+    oc get pods -A -o json 2>/dev/null | python3 -c "
+    import sys, json
+    data = json.load(sys.stdin)
+    pods = []
+    for pod in data.get('items', []):
+        if pod.get('status', {}).get('phase') not in ('Running', 'Pending'):
+            continue
+        ns = pod['metadata']['namespace']
+        name = pod['metadata']['name']
+        total_mem = 0
+        for c in pod.get('spec', {}).get('containers', []):
+            mem = c.get('resources', {}).get('requests', {}).get('memory', '0')
+            if mem.endswith('Gi'):
+                total_mem += int(float(mem[:-2]) * 1024)
+            elif mem.endswith('Mi'):
+                total_mem += int(float(mem[:-2]))
+        if total_mem > 0:
+            pods.append((total_mem, ns, name))
+    pods.sort(reverse=True)
+    for mem, ns, name in pods[:20]:
+        print(f'{mem:6d}Mi  {ns}/{name}')
+    " 2>/dev/null || echo "Failed"
+    echo ""
+    echo "=== TOP 20 PODS BY CPU REQUEST ==="
+    oc get pods -A -o json 2>/dev/null | python3 -c "
+    import sys, json
+    data = json.load(sys.stdin)
+    pods = []
+    for pod in data.get('items', []):
+        if pod.get('status', {}).get('phase') not in ('Running', 'Pending'):
+            continue
+        ns = pod['metadata']['namespace']
+        name = pod['metadata']['name']
+        total_cpu = 0
+        for c in pod.get('spec', {}).get('containers', []):
+            cpu = c.get('resources', {}).get('requests', {}).get('cpu', '0')
+            if cpu.endswith('m'):
+                total_cpu += int(cpu[:-1])
+            elif cpu:
+                try:
+                    total_cpu += int(float(cpu) * 1000)
+                except:
+                    pass
+        if total_cpu > 0:
+            pods.append((total_cpu, ns, name))
+    pods.sort(reverse=True)
+    for cpu, ns, name in pods[:20]:
+        print(f'{cpu:6d}m   {ns}/{name}')
+    " 2>/dev/null || echo "Failed"
+  register: diag_resources
+  ignore_errors: true
+
+- name: DIAG - Display resource allocation
+  debug:
+    msg: "{{ diag_resources.stdout_lines | default(['no output']) }}"
+  when: diag_resources is defined
+  ignore_errors: true
+
+# ==============================================================================
+# 7. EVENTS (WARNINGS/ERRORS)
+# ==============================================================================
+- name: DIAG - Recent warning events
+  shell: |
+    echo "====================================================================="
+    echo "7. RECENT WARNING EVENTS"
+    echo "====================================================================="
+    echo ""
+    echo "=== WARNING EVENTS (last 50) ==="
+    oc get events -A --field-selector type=Warning --sort-by='.lastTimestamp' -o custom-columns=\
+    NAMESPACE:.metadata.namespace,\
+    REASON:.reason,\
+    OBJECT:.involvedObject.name,\
+    MESSAGE:.message 2>/dev/null | tail -50 || echo "No warning events"
+    echo ""
+    echo "=== FAILEDSCHEDULING EVENTS ==="
+    oc get events -A --field-selector reason=FailedScheduling -o custom-columns=\
+    NAMESPACE:.metadata.namespace,\
+    OBJECT:.involvedObject.name,\
+    MESSAGE:.message 2>/dev/null | tail -20 || echo "No FailedScheduling events"
+    echo ""
+    echo "=== IMAGE PULL ERRORS ==="
+    oc get events -A --field-selector reason=Failed -o custom-columns=\
+    NAMESPACE:.metadata.namespace,\
+    OBJECT:.involvedObject.name,\
+    MESSAGE:.message 2>/dev/null | grep -i "pull\|image\|registry" | tail -10 || echo "No image pull errors"
+  register: diag_events
+  ignore_errors: true
+
+- name: DIAG - Display events
+  debug:
+    msg: "{{ diag_events.stdout_lines | default(['no output']) }}"
+  when: diag_events is defined
+  ignore_errors: true
+
+# ==============================================================================
+# 8. HCP CLUSTER STATUS
+# ==============================================================================
+- name: DIAG - HCP cluster state
+  shell: |
+    echo "====================================================================="
+    echo "8. HCP CLUSTER"
+    echo "====================================================================="
+    echo ""
+    echo "=== HOSTED CLUSTERS ==="
+    oc get hostedcluster -A -o custom-columns=\
+    NAMESPACE:.metadata.namespace,\
+    NAME:.metadata.name,\
+    VERSION:.status.version.desired.version,\
+    AVAILABLE:.status.conditions[-1].status 2>/dev/null || echo "No HostedClusters"
+    echo ""
+    echo "=== HCP CONTROL PLANE PODS ==="
+    for ns in $(oc get ns --no-headers 2>/dev/null | awk '{print $1}' | grep "^clusters-"); do
+      count=$(oc get pods -n $ns --no-headers 2>/dev/null | wc -l)
+      running=$(oc get pods -n $ns --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
+      pending=$(oc get pods -n $ns --field-selector=status.phase=Pending --no-headers 2>/dev/null | wc -l)
+      echo "$ns: total=$count running=$running pending=$pending"
+    done
+    echo ""
+    echo "=== HCP PVCs ==="
+    for ns in $(oc get ns --no-headers 2>/dev/null | awk '{print $1}' | grep "^clusters-"); do
+      oc get pvc -n $ns -o custom-columns=\
+      NAMESPACE:.metadata.namespace,\
+      NAME:.metadata.name,\
+      STATUS:.status.phase,\
+      STORAGECLASS:.spec.storageClassName 2>/dev/null || true
+    done
+  register: diag_hcp
+  ignore_errors: true
+
+- name: DIAG - Display HCP state
+  debug:
+    msg: "{{ diag_hcp.stdout_lines | default(['no output']) }}"
+  when: diag_hcp is defined
+  ignore_errors: true
+
+# ==============================================================================
+# 9. RHACS STATUS
+# ==============================================================================
+- name: DIAG - RHACS state
+  shell: |
+    echo "====================================================================="
+    echo "9. RHACS"
+    echo "====================================================================="
+    echo ""
+    echo "=== STACKROX PODS ==="
+    oc get pods -n stackrox -o custom-columns=\
+    NAME:.metadata.name,\
+    STATUS:.status.phase,\
+    READY:.status.containerStatuses[0].ready,\
+    RESTARTS:.status.containerStatuses[0].restartCount 2>/dev/null || echo "No stackrox namespace"
+    echo ""
+    echo "=== STACKROX PVCs ==="
+    oc get pvc -n stackrox -o custom-columns=\
+    NAME:.metadata.name,\
+    STATUS:.status.phase,\
+    STORAGECLASS:.spec.storageClassName 2>/dev/null || echo "No PVCs"
+    echo ""
+    echo "=== CENTRAL ROUTE ==="
+    oc get route central -n stackrox -o custom-columns=\
+    HOST:.spec.host,\
+    TLS:.spec.tls.termination 2>/dev/null || echo "No Central route"
+  register: diag_rhacs
+  ignore_errors: true
+
+- name: DIAG - Display RHACS state
+  debug:
+    msg: "{{ diag_rhacs.stdout_lines | default(['no output']) }}"
+  when: diag_rhacs is defined
+  ignore_errors: true
+
+# ==============================================================================
+# 10. INGRESS / ROUTER
+# ==============================================================================
+- name: DIAG - Ingress and router state
+  shell: |
+    echo "====================================================================="
+    echo "10. INGRESS / ROUTER"
+    echo "====================================================================="
+    echo ""
+    echo "=== ROUTER PODS ==="
+    oc get pods -n openshift-ingress -o wide 2>/dev/null || echo "No router pods"
+    echo ""
+    echo "=== INGRESSCONTROLLER CONDITIONS ==="
+    oc get ingresscontroller default -n openshift-ingress-operator -o json 2>/dev/null | python3 -c "
+    import sys, json
+    data = json.load(sys.stdin)
+    for c in data.get('status', {}).get('conditions', []):
+        status = c.get('status', 'Unknown')
+        ctype = c.get('type', 'Unknown')
+        msg = c.get('message', '')
+        if status != 'False' or ctype in ('Available', 'Degraded', 'Progressing'):
+            print(f'{ctype}={status}')
+            if msg:
+                print(f'  {msg[:150]}')
+    " 2>/dev/null || echo "Failed"
+  register: diag_ingress
+  ignore_errors: true
+
+- name: DIAG - Display ingress state
+  debug:
+    msg: "{{ diag_ingress.stdout_lines | default(['no output']) }}"
+  when: diag_ingress is defined
+  ignore_errors: true
+
+# ==============================================================================
+# FIX: Trigger OAuth route webhook for console embed
+# The authentication operator reverts the OAuth route to passthrough after
+# ocp_console_embed patches it. Triggering an update here (after all operators
+# have settled) lets the webhook mutate it back to reencrypt permanently.
+# ==============================================================================
+- name: Trigger OAuth route webhook for console embed
+  kubernetes.core.k8s:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: oauth-openshift
+    namespace: openshift-authentication
+    state: patched
+    definition:
+      metadata:
+        annotations:
+          ocp-console-embed/triggered: "true"
+  ignore_errors: true
+
+- name: Wait for OAuth route to be reencrypt
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: oauth-openshift
+    namespace: openshift-authentication
+  register: r_oauth_route
+  retries: 5
+  delay: 5
+  until:
+    - r_oauth_route.resources | length > 0
+    - r_oauth_route.resources[0].spec.tls.termination == "reencrypt"
+  ignore_errors: true
+
+- name: Display OAuth route status
+  debug:
+    msg: "OAuth route TLS: {{ r_oauth_route.resources[0].spec.tls.termination | default('unknown') }}"
+  when: r_oauth_route is defined
+  ignore_errors: true
+
+# ==============================================================================
+# DONE
+# ==============================================================================
+- name: DIAG - Cluster diagnostics complete
+  debug:
+    msg: "============ CLUSTER DIAGNOSTICS COMPLETE ============"

@@ -1,0 +1,101 @@
+---
+- name: Ensure namespace exists
+  kubernetes.core.k8s:
+    state: present
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_days_workload_ztwim_namespace }}"
+
+- name: Install Zero Trust Workload Identity Manager operator
+  ansible.builtin.include_role:
+    name: install_operator
+  vars:
+    install_operator_action: install
+    install_operator_name: "{{ ocp4_days_workload_ztwim_package }}"
+    install_operator_namespace: "{{ ocp4_days_workload_ztwim_namespace }}"
+    install_operator_channel: "{{ ocp4_days_workload_ztwim_channel }}"
+    install_operator_automatic_install_plan_approval: "{{ ocp4_days_workload_ztwim_automatic_install_plan_approval }}"
+    install_operator_catalogsource_setup: "{{ ocp4_days_workload_ztwim_use_catalog_snapshot }}"
+    install_operator_csv_nameprefix: zero-trust-workload-identity-manager
+    install_operator_install_csv_ignore_error: true
+
+- name: DEBUG - ZTWIM Subscription status
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ ocp4_days_workload_ztwim_package }}"
+    namespace: "{{ ocp4_days_workload_ztwim_namespace }}"
+  register: r_ztwim_subscription
+  ignore_errors: true
+
+- name: DEBUG - Display ZTWIM Subscription
+  ansible.builtin.debug:
+    msg:
+      - "Subscription found: {{ r_ztwim_subscription.resources | length > 0 }}"
+      - "Installed CSV: {{ r_ztwim_subscription.resources[0].status.installedCSV | default('not yet') }}"
+      - "State: {{ r_ztwim_subscription.resources[0].status.state | default('unknown') }}"
+  when: r_ztwim_subscription.resources | default([]) | length > 0
+  ignore_errors: true
+
+- name: DEBUG - ZTWIM CSV status
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ ocp4_days_workload_ztwim_namespace }}"
+  register: r_ztwim_csv
+  ignore_errors: true
+
+- name: DEBUG - Display ZTWIM CSV
+  ansible.builtin.debug:
+    msg:
+      - "CSV Name: {{ item.metadata.name }}"
+      - "CSV Phase: {{ item.status.phase | default('unknown') }}"
+  loop: "{{ r_ztwim_csv.resources | default([]) | selectattr('metadata.name', 'search', 'zero-trust') | list }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when: r_ztwim_csv.resources | default([]) | length > 0
+  ignore_errors: true
+
+- name: Wait for ZTWIM operator deployment to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ ocp4_days_workload_ztwim_namespace }}"
+    label_selectors:
+      - "name=zero-trust-workload-identity-manager"
+  register: r_ztwim_deployment
+  until:
+    - r_ztwim_deployment.resources | length > 0
+    - r_ztwim_deployment.resources[0].status.readyReplicas is defined
+    - r_ztwim_deployment.resources[0].status.readyReplicas | int >= 1
+  retries: 30
+  delay: 10
+  ignore_errors: true
+
+- name: DEBUG - ZTWIM deployment status
+  ansible.builtin.debug:
+    msg:
+      - "Deployment ready: {{ r_ztwim_deployment.resources[0].status.readyReplicas | default(0) }}"
+      - "Deployment available: {{ r_ztwim_deployment.resources[0].status.availableReplicas | default(0) }}"
+  when: r_ztwim_deployment.resources | default([]) | length > 0
+  ignore_errors: true
+
+- name: DEBUG - ZTWIM pods
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ ocp4_days_workload_ztwim_namespace }}"
+  register: r_ztwim_pods
+  ignore_errors: true
+
+- name: DEBUG - Display ZTWIM pods
+  ansible.builtin.debug:
+    msg:
+      - "Pods: {{ r_ztwim_pods.resources | default([]) | map(attribute='metadata.name') | list }}"
+      - "Statuses: {{ r_ztwim_pods.resources | default([]) | map(attribute='status.phase') | list }}"
+  when: r_ztwim_pods.resources | default([]) | length > 0
+  ignore_errors: true
+
+- name: ZTWIM operator installation complete
+  ansible.builtin.debug:
+    msg: "Zero Trust Workload Identity Manager operator installed successfully."

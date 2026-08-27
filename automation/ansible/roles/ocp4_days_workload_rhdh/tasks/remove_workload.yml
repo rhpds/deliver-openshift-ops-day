@@ -1,0 +1,50 @@
+---
+# Remove RHDH workload
+
+- name: Remove Backstage CR
+  kubernetes.core.k8s:
+    state: absent
+    api_version: rhdh.redhat.com/v1alpha3
+    kind: Backstage
+    name: "{{ ocp4_days_workload_rhdh_instance_name }}"
+    namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+  ignore_errors: true
+
+- name: Remove guest auth ConfigMap
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ConfigMap
+    name: app-config-rhdh
+    namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+  ignore_errors: true
+
+- name: Remove RHDH instance namespace
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
+  ignore_errors: true
+
+- name: Remove RHDH operator
+  ansible.builtin.include_role:
+    name: install_operator
+  vars:
+    install_operator_action: remove
+    install_operator_name: rhdh
+    install_operator_namespace: "{{ ocp4_days_workload_rhdh_operator_namespace }}"
+  ignore_errors: true
+
+- name: Remove RHDH operator namespace
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_days_workload_rhdh_operator_namespace }}"
+  ignore_errors: true
+
+- name: Workload removal complete
+  debug:
+    msg: "Red Hat Developer Hub removed successfully"
+  when: not silent | bool

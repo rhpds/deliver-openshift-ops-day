@@ -1,0 +1,13 @@
+---
+ocp4_days_workload_vault_namespace: vault
+ocp4_days_workload_vault_helm_release: vault
+ocp4_days_workload_vault_helm_repo_name: hashicorp
+ocp4_days_workload_vault_helm_repo_url: https://helm.releases.hashicorp.com
+ocp4_days_workload_vault_chart: hashicorp/vault
+
+ocp4_days_workload_vault_server_image: "docker.io/hashicorp/vault"
+ocp4_days_workload_vault_server_tag: "1.21.2"
+ocp4_days_workload_vault_injector_image: "docker.io/hashicorp/vault-k8s"
+ocp4_days_workload_vault_injector_tag: "1.7.2"
+
+ocp4_days_workload_vault_dev_root_token: "root"

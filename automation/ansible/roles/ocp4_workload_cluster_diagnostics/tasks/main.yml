@@ -1,0 +1,9 @@
+---
+- name: Running cluster diagnostics
+  when: ACTION == "provision"
+  ansible.builtin.include_tasks: workload.yml
+
+- name: Skip diagnostics on destroy
+  when: ACTION == "destroy"
+  debug:
+    msg: "Skipping diagnostics on destroy"

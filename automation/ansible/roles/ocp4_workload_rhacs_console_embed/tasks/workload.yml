@@ -1,0 +1,108 @@
+---
+# ==============================================================================
+# Patch RHACS Central route: passthrough → reencrypt for Showroom iframe
+# ==============================================================================
+# Problem:
+#   RHACS Central sends X-Frame-Options: sameorigin and
+#   content-security-policy: frame-ancestors 'self' in its HTTP responses.
+#   The ocp4_workload_ocp_console_embed role configures the IngressController
+#   to strip these headers, but that only works on edge/reencrypt routes —
+#   not on the passthrough route the RHACS operator creates by default.
+#   Result: Showroom cannot embed RHACS in an iframe tab.
+#
+# Fix:
+#   Change the Central route from passthrough → reencrypt. This lets HAProxy
+#   terminate TLS on the external side and re-encrypt to the Central pod,
+#   giving it control over response headers.
+#
+# CA trust:
+#   For reencrypt, HAProxy must verify Central's backend TLS cert. Central
+#   may serve either a Let's Encrypt cert (from rhacs-central-tls, provisioned
+#   by the platform) or a StackRox-signed cert (from central-tls). We provide
+#   a combined destinationCACertificate containing:
+#     1. The StackRox internal CA  — covers the StackRox-signed cert
+#     2. The cluster trusted CA bundle — covers Let's Encrypt / any public CA
+# ==============================================================================
+
+- name: Get ingress controller default certificate name
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1
+    kind: IngressController
+    name: default
+    namespace: openshift-ingress-operator
+  register: r_ingress_controller
+
+- name: Get ingress certificate secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ r_ingress_controller.resources[0].spec.defaultCertificate.name | default('router-certs-default') }}"
+    namespace: openshift-ingress
+  register: r_ingress_cert_secret
+
+- name: Get StackRox central TLS secret (internal CA)
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: central-tls
+    namespace: stackrox
+  register: r_central_tls_secret
+
+# The cluster trusted CA bundle includes all public root CAs (e.g. ISRG Root X1
+# for Let's Encrypt). Without it, HAProxy cannot verify the full certificate
+# chain when Central serves a Let's Encrypt cert on a reencrypt route.
+- name: Get cluster trusted CA bundle (public root CAs)
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: trusted-ca-bundle
+    namespace: openshift-config-managed
+  register: r_trusted_ca_bundle
+
+- name: Build combined destination CA certificate
+  ansible.builtin.set_fact:
+    _rhacs_combined_destination_ca: >-
+      {{ r_central_tls_secret.resources[0].data['ca.pem'] | b64decode }}
+      {{ r_trusted_ca_bundle.resources[0].data['ca-bundle.crt'] | default('') }}
+
+- name: Patch Central route to reencrypt with combined CA trust
+  kubernetes.core.k8s:
+    state: patched
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: central
+    namespace: stackrox
+    definition:
+      spec:
+        tls:
+          termination: reencrypt
+          certificate: "{{ r_ingress_cert_secret.resources[0].data['tls.crt'] | b64decode }}"
+          key: "{{ r_ingress_cert_secret.resources[0].data['tls.key'] | b64decode }}"
+          destinationCACertificate: "{{ _rhacs_combined_destination_ca }}"
+          insecureEdgeTerminationPolicy: Redirect
+
+- name: Get Central route after patch
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: central
+    namespace: stackrox
+  register: r_central_route
+
+- name: Verify Central is reachable after route patch
+  ansible.builtin.uri:
+    url: "https://{{ r_central_route.resources[0].spec.host }}/v1/ping"
+    method: GET
+    validate_certs: false
+    status_code: [200, 401]
+  register: r_central_verify
+  retries: 10
+  delay: 5
+  until: r_central_verify.status in [200, 401]
+
+- name: Report result
+  debug:
+    msg: >-
+      Central route patched to reencrypt.
+      Host: {{ r_central_route.resources[0].spec.host }},
+      Termination: {{ r_central_route.resources[0].spec.tls.termination }}

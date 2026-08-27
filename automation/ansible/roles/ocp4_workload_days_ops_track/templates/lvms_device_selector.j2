@@ -1,0 +1,12 @@
+{# LVMS deviceSelector template - handles paths, optionalPaths, and forceWipe #}
+{% set selector = {} %}
+{% if workshop_lvms_paths | default([]) | length > 0 %}
+{% set _ = selector.update({'paths': workshop_lvms_paths}) %}
+{% endif %}
+{% if workshop_lvms_optional_paths | default([]) | length > 0 %}
+{% set _ = selector.update({'optionalPaths': workshop_lvms_optional_paths}) %}
+{% endif %}
+{% if workshop_lvms_force_wipe | default(false) %}
+{% set _ = selector.update({'forceWipeDevicesAndDestroyAllData': true}) %}
+{% endif %}
+{{ selector | to_yaml }}

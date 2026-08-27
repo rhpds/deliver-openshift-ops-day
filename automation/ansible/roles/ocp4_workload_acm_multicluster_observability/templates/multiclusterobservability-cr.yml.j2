@@ -1,0 +1,129 @@
+apiVersion: observability.open-cluster-management.io/v1beta2
+kind: MultiClusterObservability
+metadata:
+  name: observability
+  namespace:  "{{ ocp4_workload_acm_multicluster_observability_namespace }}"
+spec:
+  observabilityAddonSpec: {}
+  storageConfig:
+    metricObjectStorage:
+      name: thanos-object-storage
+      key: thanos.yaml
+{% if ocp4_workload_acm_multicluster_observability_compact_resources | default(false) | bool %}
+  # ---------------------------------------------------------------
+  # Compact resource overrides for resource-constrained clusters.
+  #
+  # WHY: On compact clusters (e.g. 3-node control-plane/worker combo),
+  # the default MCO operator settings deploy 2-3 replicas of each
+  # Thanos component with high CPU requests (~3100m total), but
+  # actual usage in a single-managed-cluster lab is ~135m total.
+  # This exhausts CPU request capacity and blocks other workloads
+  # (e.g. LokiStack) from scheduling.
+  #
+  # WHAT: Reduces all replicas to 1 (removes HA, not needed in a
+  # single-user lab) and lowers CPU requests to match observed
+  # usage with headroom. All components remain fully functional.
+  #
+  # REVERT: Set ocp4_workload_acm_multicluster_observability_compact_resources
+  # to false in your config. The MCO operator will reconcile back
+  # to its defaults on next deployment.
+  #
+  # Savings: ~2100m CPU requests
+  # ---------------------------------------------------------------
+  advanced:
+    # thanos-compact: compacts historical blocks in S3
+    # Default: 1 pod × 500m | Actual usage: 1m
+    compact:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+    # thanos-query: executes PromQL queries across clusters
+    # Default: 2 pods × 300m | Actual usage: 3-22m per pod
+    query:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+    # thanos-query-frontend: caches and splits queries for Grafana
+    # Default: 2 pods × 100m | Actual usage: 3-4m per pod
+    queryFrontend:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    # thanos-query-frontend-memcached: cache layer for query-frontend
+    # Default: 3 pods × 50m | Actual usage: 1m per pod
+    queryFrontendMemcached:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    # thanos-receive: ingests metrics from managed clusters
+    # Default: 3 pods × 300m | Actual usage: 2-3m per pod
+    receive:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+    # thanos-rule: evaluates recording and alerting rules
+    # Default: 3 pods × 54m | Actual usage: 2-4m per pod
+    rule:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    # thanos-store: serves historical metric data from S3
+    # Default: 3 shards × 100m | Actual usage: 2-9m per shard
+    # Note: keeping 100m per shard as store can burst during large queries
+    store:
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+    # thanos-store-memcached: cache layer for store
+    # Default: 2 pods × 50m | Actual usage: 2-3m per pod
+    storeMemcached:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+    # alertmanager: routes alerts from Thanos rule evaluations
+    # Default: 3 pods × 19m | Actual usage: 7-12m per pod
+    alertmanager:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 20m
+          memory: 64Mi
+    # grafana: dashboards for multi-cluster metrics (needed for ACM module)
+    # Default: 2 pods × 8m | Actual usage: 6-10m per pod
+    grafana:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+    # observatorium-api: API gateway for Thanos
+    # Default: 2 pods × 20m | Actual usage: 2m per pod
+    observatoriumAPI:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 20m
+          memory: 64Mi
+    # rbac-query-proxy: auth proxy for metric queries
+    # Default: 2 pods × 21m | Actual usage: 4-8m per pod
+    rbacQueryProxy:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 20m
+          memory: 64Mi
+{% endif %}

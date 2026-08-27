@@ -1,0 +1,47 @@
+apiVersion: hypershift.openshift.io/v1beta1
+kind: HostedCluster
+metadata:
+  name: {{ ocp4_workload_create_hcp_cluster_name }}
+  namespace: {{ ocp4_workload_create_hcp_cluster_namespace }}
+spec:
+  release:
+    image: {{ ocp4_workload_create_hcp_cluster_release_image }}
+  pullSecret:
+    name: pullsecret-cluster-{{ ocp4_workload_create_hcp_cluster_name }}
+  sshKey:
+    name: sshkey-cluster-{{ ocp4_workload_create_hcp_cluster_name }}
+  networking:
+    clusterNetwork:
+      - cidr: {{ ocp4_workload_create_hcp_cluster_network_cidr }}
+    serviceNetwork:
+      - cidr: {{ ocp4_workload_create_hcp_cluster_service_network_cidr }}
+  platform:
+    type: KubeVirt
+    kubevirt:
+      baseDomainPassthrough: true
+  infraID: {{ ocp4_workload_create_hcp_cluster_name }}
+  dns:
+    baseDomain: {{ ocp4_workload_create_hcp_cluster_base_domain }}
+  services:
+    - service: APIServer
+      servicePublishingStrategy:
+        type: LoadBalancer
+    - service: OAuthServer
+      servicePublishingStrategy:
+        type: Route
+    - service: Konnectivity
+      servicePublishingStrategy:
+        type: Route
+    - service: Ignition
+      servicePublishingStrategy:
+        type: Route
+  etcd:
+    managed:
+      storage:
+        persistentVolume:
+          size: {{ ocp4_workload_create_hcp_cluster_etcd_storage_size }}
+          storageClassName: {{ ocp4_workload_create_hcp_cluster_etcd_storage_class }}
+        type: PersistentVolume
+    managementType: Managed
+  controllerAvailabilityPolicy: {{ ocp4_workload_create_hcp_cluster_availability }}
+  infrastructureAvailabilityPolicy: {{ ocp4_workload_create_hcp_cluster_availability }}

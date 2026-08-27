@@ -1,0 +1,11 @@
+= ocp4_workload_rhacm_cloud_credentials
+
+== Role overview
+
+Create the Secrets necessary for RHACM to deploy clusters.
+
+Supports:
+
+* AWS
+* Azure
+* KubeVirt

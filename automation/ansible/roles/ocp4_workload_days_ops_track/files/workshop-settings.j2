@@ -1,0 +1,38 @@
+API_URL={{ api_url }}
+MASTER_URL={{ master_url }}
+ADMIN_PASSWORD={{ common_admin_password }}
+SSH_USERNAME={{ student_name | default('lab-user') }}
+SSH_PASSWORD={{ student_password | default('') }}
+BASTION_FQDN={{ bastion_fqdn }}
+GUID={{ guid }}
+ROUTE_SUBDOMAIN={{ route_subdomain }}
+HOME_PATH=/opt/app-root/src
+ENVIRONMENT={{ workshop_environment | default('Red Hat Demo Platform') }}
+# Getting started modules (content only)
+MODULE_ENABLE_CONCEPTS={{ module_enable_concepts | default(true) | string | lower }}
+MODULE_ENABLE_INSTALL={{ module_enable_install | default(true) | string | lower }}
+# Core operations modules (content only)
+MODULE_ENABLE_APPMGMT={{ module_enable_appmgmt | default(true) | string | lower }}
+MODULE_ENABLE_INGRESS={{ module_enable_ingress | default(true) | string | lower }}
+MODULE_ENABLE_NETSEC={{ module_enable_netsec | default(true) | string | lower }}
+MODULE_ENABLE_DEBUGGING={{ module_enable_debugging | default(true) | string | lower }}
+MODULE_ENABLE_GITOPS={{ module_enable_gitops | default(true) | string | lower }}
+# Modules with workloads (operator deployed)
+MODULE_ENABLE_VIRT={{ module_enable_virt | default(true) | string | lower }}
+MODULE_ENABLE_HCP={{ module_enable_hcp | default(true) | string | lower }}
+MODULE_ENABLE_ACM={{ module_enable_acm | default(true) | string | lower }}
+MODULE_ENABLE_BACKUP={{ module_enable_backup | default(true) | string | lower }}
+MODULE_ENABLE_DEVHUB={{ module_enable_devhub | default(true) | string | lower }}
+MODULE_ENABLE_OLS={{ module_enable_ols | default(true) | string | lower }}
+MODULE_ENABLE_SECURITY={{ module_enable_security | default(true) | string | lower }}
+MODULE_ENABLE_ZTWIM={{ module_enable_ztwim | default(true) | string | lower }}
+MODULE_ENABLE_VAULT={{ module_enable_vault | default(true) | string | lower }}
+MODULE_ENABLE_WAF={{ module_enable_waf | default(true) | string | lower }}
+# Modules without workloads (content only)
+MODULE_ENABLE_LDAP={{ module_enable_ldap | default(true) | string | lower }}
+MODULE_ENABLE_OIDC={{ module_enable_oidc | default(true) | string | lower }}
+MODULE_ENABLE_OBSERVABILITY={{ module_enable_observability | default(true) | string | lower }}
+MODULE_ENABLE_PERFORMANCE={{ module_enable_performance | default(true) | string | lower }}
+MODULE_ENABLE_CLOUD_INFRA={{ module_enable_cloud_infra | default(true) | string | lower }}
+# Service URLs
+OLS_AZURE_URL={{ ocp4_workload_ols_llm_providers_url | default('https://llm-gpt4-lightspeed.openai.azure.com/') }}

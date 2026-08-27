@@ -1,0 +1,62 @@
+---
+- name: Setting up HCP KubeVirt workload
+  ansible.builtin.debug:
+    msg: "Patching IngressController for wildcard routes"
+
+- name: Patch the IngressController to allow wildcard routes
+  kubernetes.core.k8s:
+    state: patched
+    namespace: openshift-ingress-operator
+    api_version: operator.openshift.io/v1
+    kind: IngressController
+    name: default
+    definition:
+      spec:
+        routeAdmission:
+          wildcardPolicy: "WildcardsAllowed"
+
+# Wait for router pods to fully stabilize after IngressController patch.
+# The patch triggers a rolling restart of router pods. If subsequent workloads
+# (e.g. RHACS) try to use routes before the rollout completes, TLS connections
+# fail with SSL: UNEXPECTED_EOF_WHILE_READING.
+- name: Wait for IngressController to report available
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1
+    kind: IngressController
+    name: default
+    namespace: openshift-ingress-operator
+  register: r_ingress_controller
+  until:
+    - r_ingress_controller.resources | length > 0
+    - r_ingress_controller.resources[0].status.availableReplicas is defined
+    - r_ingress_controller.resources[0].status.availableReplicas | int == r_ingress_controller.resources[0].spec.replicas | default(2) | int
+    - r_ingress_controller.resources[0].status.conditions | default([]) | selectattr('type', 'equalto', 'Progressing') | selectattr('status', 'equalto', 'False') | list | length > 0
+  retries: 60
+  delay: 10
+
+- name: Wait for all router pods to be Ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: openshift-ingress
+    label_selectors:
+      - ingresscontroller.operator.openshift.io/deployment-ingresscontroller=default
+  register: r_router_pods
+  until:
+    - r_router_pods.resources | length > 0
+    - r_router_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length == r_router_pods.resources | length
+  retries: 60
+  delay: 10
+
+- name: Display router stabilization status
+  debug:
+    msg:
+      - "Router pods ready: {{ r_router_pods.resources | length }}"
+      - "IngressController available replicas: {{ r_ingress_controller.resources[0].status.availableReplicas | default('unknown') }}"
+      - "IngressController progressing: {{ r_ingress_controller.resources[0].status.conditions | default([]) | selectattr('type', 'equalto', 'Progressing') | map(attribute='status') | first | default('unknown') }}"
+
+# Leave this as the last task in the playbook.
+- name: Workload tasks complete
+  when: not silent|bool
+  ansible.builtin.debug:
+    msg: "Workload Tasks completed successfully."

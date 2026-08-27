@@ -1,0 +1,19 @@
+---
+# vim: set ft=ansible
+
+# Implement your Workload deployment tasks here
+- name: Check if clean-admin.yml exists
+  stat:
+    path: "{{ role_path }}/tasks/clean-admin.yml"
+  register: r_clean_admin
+
+- name: Cleaning admin
+  include_tasks:
+    file: ./clean-admin.yml
+  when: r_clean_admin.stat.exists
+
+# Leave this as the last task in the playbook.
+- name: remove_workload tasks complete
+  debug:
+    msg: "Remove Workload tasks completed successfully."
+  when: not silent | bool

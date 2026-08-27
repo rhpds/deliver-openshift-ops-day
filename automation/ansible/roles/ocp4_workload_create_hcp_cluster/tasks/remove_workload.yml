@@ -1,0 +1,32 @@
+---
+- name: Delete HostedCluster
+  kubernetes.core.k8s:
+    state: absent
+    api_version: hypershift.openshift.io/v1beta1
+    kind: HostedCluster
+    name: "{{ ocp4_workload_create_hcp_cluster_name }}"
+    namespace: "{{ ocp4_workload_create_hcp_cluster_namespace }}"
+  ignore_errors: true
+
+- name: Delete pull secret
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    name: "pullsecret-cluster-{{ ocp4_workload_create_hcp_cluster_name }}"
+    namespace: "{{ ocp4_workload_create_hcp_cluster_namespace }}"
+  ignore_errors: true
+
+- name: Delete SSH key secret
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    name: "sshkey-cluster-{{ ocp4_workload_create_hcp_cluster_name }}"
+    namespace: "{{ ocp4_workload_create_hcp_cluster_namespace }}"
+  ignore_errors: true
+
+- name: Remove workload tasks complete
+  debug:
+    msg: "HCP cluster '{{ ocp4_workload_create_hcp_cluster_name }}' removed."
+  when: not silent | bool

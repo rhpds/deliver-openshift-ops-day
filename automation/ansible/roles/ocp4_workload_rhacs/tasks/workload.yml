@@ -1,0 +1,479 @@
+---
+# ==============================================================================
+# DEBUG - Pre-flight cluster resource state
+# ==============================================================================
+- name: DEBUG - Node resource usage before RHACS deployment
+  shell: |
+    echo "=== NODE RESOURCE USAGE ==="
+    oc adm top nodes 2>/dev/null || echo "Metrics not available"
+    echo ""
+    echo "=== NODE ALLOCATABLE ==="
+    oc get nodes -o custom-columns=NAME:.metadata.name,CPU_ALLOC:.status.allocatable.cpu,MEM_ALLOC:.status.allocatable.memory,PODS_ALLOC:.status.allocatable.pods 2>/dev/null || echo "Failed"
+    echo ""
+    echo "=== NODE CONDITIONS ==="
+    oc get nodes -o custom-columns=NAME:.metadata.name,MEMORY_PRESSURE:.status.conditions[-4].status,DISK_PRESSURE:.status.conditions[-3].status,PID_PRESSURE:.status.conditions[-2].status,READY:.status.conditions[-1].status 2>/dev/null || echo "Failed"
+    echo ""
+    echo "=== TOTAL POD COUNT ==="
+    oc get pods -A --no-headers 2>/dev/null | wc -l
+    echo ""
+    echo "=== PODS NOT RUNNING ==="
+    oc get pods -A --field-selector=status.phase!=Running,status.phase!=Succeeded --no-headers 2>/dev/null | head -20 || echo "All pods running"
+    echo ""
+    echo "=== PENDING PVCS ==="
+    oc get pvc -A --field-selector=status.phase!=Bound --no-headers 2>/dev/null | head -10 || echo "All PVCs bound"
+    echo ""
+    echo "=== HCP CLUSTER PODS (clusters-managed-hcp) ==="
+    oc get pods -n clusters-managed-hcp --no-headers 2>/dev/null | wc -l
+    echo "pods in HCP namespace"
+    oc get pods -n clusters-managed-hcp -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,CPU_REQ:.spec.containers[0].resources.requests.cpu,MEM_REQ:.spec.containers[0].resources.requests.memory 2>/dev/null | head -30 || echo "No HCP pods"
+    echo ""
+    echo "=== ROUTER PODS STATUS ==="
+    oc get pods -n openshift-ingress -o wide 2>/dev/null || echo "No router pods"
+    echo ""
+    echo "=== INGRESSCONTROLLER STATUS ==="
+    oc get ingresscontroller default -n openshift-ingress-operator -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.message}{"\n"}{end}' 2>/dev/null || echo "Failed"
+  register: debug_pre_rhacs
+  ignore_errors: true
+
+- name: DEBUG - Display pre-RHACS cluster state
+  debug:
+    msg: "{{ debug_pre_rhacs.stdout_lines | default(['no output']) }}"
+  when: debug_pre_rhacs is defined
+  ignore_errors: true
+
+# ==============================================================================
+# Install RHACS Operator
+# ==============================================================================
+- name: Install Operator
+  ansible.builtin.include_role:
+    name: install_operator
+  vars:
+    install_operator_action: install
+    install_operator_name: rhacs-operator
+    install_operator_namespace: "{{ ocp4_workload_rhacs_install_operator_namespace }}"
+    install_operator_channel: "{{ ocp4_workload_rhacs_install_operator_channel | default('') }}"
+    install_operator_automatic_install_plan_approval: "{{ ocp4_workload_rhacs_automatic_install_plan_approval | default(true) }}"
+    install_operator_starting_csv: "{{ ocp4_workload_rhacs_install_operator_starting_csv }}"
+    install_operator_use_catalog_snapshot: "{{ ocp4_workload_rhacs_install_operator_use_catalog_snapshot }}"
+    install_operator_catalogsource_image: "{{ ocp4_workload_rhacs_install_operator_catalog_source_image | default('') }}"
+    install_operator_catalogsource_image_tag: "{{ ocp4_workload_rhacs_install_operator_catalog_source_tag | default('') }}"
+
+# ==============================================================================
+# Install Central
+# ==============================================================================
+- name: Create Central Namespace
+  kubernetes.core.k8s:
+    state: present
+    api_version: v1
+    kind: Namespace
+    name: stackrox
+  register: r_k8s
+  until: r_k8s is successful
+  retries: 30
+  delay: 5
+
+- name: Create collector config
+  when: ocp4_workload_rhacs_collector_config_enable | bool
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'collector-config.yaml.j2') | from_yaml }}"
+  register: r_collector_config
+  until: r_collector_config is successful
+  retries: 30
+  delay: 5
+
+- name: Generate admin password
+  when: ocp4_workload_rhacs_central_admin_password | default('') | length == 0
+  ansible.builtin.set_fact:
+    _ocp4_workload_rhacs_central_admin_password: >-
+      {{ lookup('password', '/dev/null chars=ascii_letters,digits '
+          ~ 'length=' ~ ocp4_workload_rhacs_central_admin_password_length
+      ) }}
+
+- name: Use provided admin password
+  when: ocp4_workload_rhacs_central_admin_password | default('') | length > 0
+  ansible.builtin.set_fact:
+    _ocp4_workload_rhacs_central_admin_password: >-
+      {{ ocp4_workload_rhacs_central_admin_password }}
+
+- name: Create Secret for Central admin password
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: acs-password
+        namespace: stackrox
+      data:
+        password: "{{ _ocp4_workload_rhacs_central_admin_password | b64encode }}"
+      type: Opaque
+  register: r_k8s
+  until: r_k8s is successful
+  retries: 30
+  delay: 5
+
+- name: DEBUG - Central CR config
+  debug:
+    msg:
+      - "=== CENTRAL CR CONFIG ==="
+      - "channel: {{ ocp4_workload_rhacs_install_operator_channel }}"
+      - "scanner_v4_enabled: {{ ocp4_workload_rhacs_enable_central_scanner_v4 }}"
+      - "enable_route_certs: {{ ocp4_workload_rhacs_enable_route_certs }}"
+      - "use_catalog_snapshot: {{ ocp4_workload_rhacs_install_operator_use_catalog_snapshot }}"
+  ignore_errors: true
+
+- name: Create Central via CR
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'central.yaml.j2') | from_yaml }}"
+  register: r_k8s
+  until: r_k8s is successful
+  retries: 30
+  delay: 5
+
+# ==============================================================================
+# DEBUG - Monitor Central startup
+# ==============================================================================
+- name: DEBUG - Wait 30s then check Central pod status
+  shell: |
+    sleep 30
+    echo "=== STACKROX PODS ==="
+    oc get pods -n stackrox -o wide 2>/dev/null || echo "No pods yet"
+    echo ""
+    echo "=== STACKROX PVCS ==="
+    oc get pvc -n stackrox -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,CAPACITY:.status.capacity.storage,STORAGECLASS:.spec.storageClassName 2>/dev/null || echo "No PVCs"
+    echo ""
+    echo "=== STACKROX EVENTS (last 20) ==="
+    oc get events -n stackrox --sort-by='.lastTimestamp' 2>/dev/null | tail -20 || echo "No events"
+    echo ""
+    echo "=== CENTRAL POD DESCRIBE ==="
+    CENTRAL_POD=$(oc get pods -n stackrox -l app=central -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+    if [ -n "$CENTRAL_POD" ]; then
+      echo "Pod: $CENTRAL_POD"
+      oc get pod $CENTRAL_POD -n stackrox -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.reason} {.message}{"\n"}{end}' 2>/dev/null
+      echo ""
+      echo "=== CENTRAL POD RESOURCE REQUESTS ==="
+      oc get pod $CENTRAL_POD -n stackrox -o jsonpath='{range .spec.containers[*]}Container: {.name} CPU_REQ={.resources.requests.cpu} MEM_REQ={.resources.requests.memory} CPU_LIM={.resources.limits.cpu} MEM_LIM={.resources.limits.memory}{"\n"}{end}' 2>/dev/null
+      echo ""
+      echo "=== CENTRAL CONTAINER STATUSES ==="
+      oc get pod $CENTRAL_POD -n stackrox -o jsonpath='{range .status.containerStatuses[*]}Container: {.name} Ready={.ready} State={.state}{"\n"}{end}' 2>/dev/null
+      echo ""
+      echo "=== CENTRAL POD LOGS (last 20 lines) ==="
+      oc logs $CENTRAL_POD -n stackrox --tail=20 2>/dev/null || echo "No logs yet"
+    else
+      echo "Central pod not found yet"
+    fi
+    echo ""
+    echo "=== SCANNER PODS ==="
+    oc get pods -n stackrox -l app=scanner 2>/dev/null || echo "No scanner pods"
+    echo ""
+    echo "=== SCANNER V4 PODS ==="
+    oc get pods -n stackrox -l app=scanner-v4 2>/dev/null || echo "No scanner-v4 pods"
+    oc get pods -n stackrox -l app=scanner-v4-matcher 2>/dev/null || echo "No scanner-v4-matcher pods"
+    oc get pods -n stackrox -l app=scanner-v4-indexer 2>/dev/null || echo "No scanner-v4-indexer pods"
+  register: debug_central_startup
+  ignore_errors: true
+
+- name: DEBUG - Display Central startup status
+  debug:
+    msg: "{{ debug_central_startup.stdout_lines | default(['no output']) }}"
+  when: debug_central_startup is defined
+  ignore_errors: true
+
+- name: Get Central route
+  kubernetes.core.k8s_info:
+    kind: Route
+    api_version: route.openshift.io/v1
+    namespace: stackrox
+    name: central
+  register: r_stackrox_central_route
+  retries: 10
+  delay: 20
+  until:
+    - r_stackrox_central_route.resources[0].spec.host is defined
+
+- name: Store central route as a fact
+  ansible.builtin.set_fact:
+    # yamllint disable-line rule:line-length
+    f_stackrox_central_addr: "{{ r_stackrox_central_route.resources[0].spec.host }}"
+
+- name: DEBUG - Central route and pod state before ping
+  shell: |
+    echo "=== CENTRAL ROUTE ==="
+    echo "Host: {{ f_stackrox_central_addr }}"
+    oc get route central -n stackrox -o jsonpath='{.spec.tls.termination}' 2>/dev/null
+    echo ""
+    echo "Route TLS termination: $(oc get route central -n stackrox -o jsonpath='{.spec.tls.termination}' 2>/dev/null || echo 'not set (passthrough)')"
+    echo ""
+    echo "=== ALL STACKROX PODS ==="
+    oc get pods -n stackrox -o wide 2>/dev/null
+    echo ""
+    echo "=== CENTRAL POD RESTARTS ==="
+    oc get pods -n stackrox -l app=central -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,RESTARTS:.status.containerStatuses[0].restartCount,READY:.status.containerStatuses[0].ready 2>/dev/null || echo "No central pod"
+    echo ""
+    echo "=== STACKROX PVCS ==="
+    oc get pvc -n stackrox 2>/dev/null || echo "No PVCs"
+    echo ""
+    echo "=== NODE RESOURCE USAGE (at ping time) ==="
+    oc adm top nodes 2>/dev/null || echo "Metrics not available"
+    echo ""
+    echo "=== CURL TEST (bypass ansible) ==="
+    curl -sk -o /dev/null -w "HTTP_CODE=%{http_code} TIME=%{time_total}s SSL_VERIFY=%{ssl_verify_result}" https://{{ f_stackrox_central_addr }}/v1/ping 2>&1 || echo "curl failed"
+  register: debug_before_ping
+  ignore_errors: true
+
+- name: DEBUG - Display pre-ping state
+  debug:
+    msg: "{{ debug_before_ping.stdout_lines | default(['no output']) }}"
+  when: debug_before_ping is defined
+  ignore_errors: true
+
+# ==============================================================================
+# Wait for Central to be ready (with post-failure diagnostics)
+# ==============================================================================
+- name: Wait for Central availability
+  block:
+    - name: Ping Central endpoint
+      ansible.builtin.uri:
+        url: "https://{{ f_stackrox_central_addr }}/v1/ping"
+        method: GET
+        user: admin
+        password: "{{ _ocp4_workload_rhacs_central_admin_password }}"
+        force_basic_auth: true
+        validate_certs: false
+      register: result
+      until: result.status == 200
+      retries: 60
+      delay: 20
+  rescue:
+    - name: DEBUG - Post-failure cluster state
+      shell: |
+        echo "=== CENTRAL PING FAILED - COLLECTING DIAGNOSTICS ==="
+        echo ""
+        echo "=== STACKROX PODS (final state) ==="
+        oc get pods -n stackrox -o wide 2>/dev/null || echo "No pods"
+        echo ""
+        echo "=== STACKROX PVCS (final state) ==="
+        oc get pvc -n stackrox 2>/dev/null || echo "No PVCs"
+        echo ""
+        echo "=== CENTRAL POD DESCRIBE ==="
+        CENTRAL_POD=$(oc get pods -n stackrox -l app=central -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+        if [ -n "$CENTRAL_POD" ]; then
+          echo "Pod: $CENTRAL_POD"
+          echo "Phase: $(oc get pod $CENTRAL_POD -n stackrox -o jsonpath='{.status.phase}' 2>/dev/null)"
+          echo "Restarts: $(oc get pod $CENTRAL_POD -n stackrox -o jsonpath='{.status.containerStatuses[0].restartCount}' 2>/dev/null)"
+          echo "Ready: $(oc get pod $CENTRAL_POD -n stackrox -o jsonpath='{.status.containerStatuses[0].ready}' 2>/dev/null)"
+          echo ""
+          echo "=== CENTRAL POD LOGS (last 50 lines) ==="
+          oc logs $CENTRAL_POD -n stackrox --tail=50 2>/dev/null || echo "No logs"
+        else
+          echo "Central pod not found"
+        fi
+        echo ""
+        echo "=== CENTRAL-DB POD ==="
+        DB_POD=$(oc get pods -n stackrox -l app=central-db -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+        if [ -n "$DB_POD" ]; then
+          echo "Pod: $DB_POD"
+          echo "Phase: $(oc get pod $DB_POD -n stackrox -o jsonpath='{.status.phase}' 2>/dev/null)"
+          echo ""
+          echo "=== CENTRAL-DB LOGS (last 30 lines) ==="
+          oc logs $DB_POD -n stackrox --tail=30 2>/dev/null || echo "No logs"
+        else
+          echo "central-db pod not found"
+        fi
+        echo ""
+        echo "=== STACKROX EVENTS (last 30) ==="
+        oc get events -n stackrox --sort-by='.lastTimestamp' 2>/dev/null | tail -30 || echo "No events"
+        echo ""
+        echo "=== NODE RESOURCE USAGE (at failure) ==="
+        oc adm top nodes 2>/dev/null || echo "Metrics not available"
+        echo ""
+        echo "=== PENDING PODS CLUSTER-WIDE ==="
+        oc get pods -A --field-selector=status.phase=Pending --no-headers 2>/dev/null | head -20 || echo "No pending pods"
+        echo ""
+        echo "=== CURL TEST ==="
+        curl -sk -o /dev/null -w "HTTP_CODE=%{http_code} TIME=%{time_total}s" https://{{ f_stackrox_central_addr }}/v1/ping 2>&1 || echo "curl failed"
+      register: debug_post_failure
+      ignore_errors: true
+
+    - name: DEBUG - Display post-failure diagnostics
+      debug:
+        msg: "{{ debug_post_failure.stdout_lines | default(['no output']) }}"
+      when: debug_post_failure is defined
+      ignore_errors: true
+
+    - name: Fail with original error
+      fail:
+        msg: "RHACS Central did not become available within 20 minutes. See diagnostics above."
+
+- name: Fix Route to Central
+  when: ocp4_workload_rhacs_enable_route_certs | bool
+  block:
+  - name: Get ingress controller default certificate name
+    kubernetes.core.k8s_info:
+      api_version: operator.openshift.io/v1
+      kind: IngressController
+      name: default
+      namespace: openshift-ingress-operator
+    register: r_ingress_controller
+
+  - name: Get ingress certificate secret
+    kubernetes.core.k8s_info:
+      api_version: v1
+      kind: Secret
+      name: "{{ r_ingress_controller.resources[0].spec.defaultCertificate.name | default('router-certs-default') }}"
+      namespace: openshift-ingress
+    register: r_ingress_cert_secret
+
+  - name: Get StackRox central TLS secret
+    kubernetes.core.k8s_info:
+      api_version: v1
+      kind: Secret
+      name: central-tls
+      namespace: stackrox
+    register: r_central_tls_secret
+
+  - name: Patch central route with Ingress and CA certificates
+    kubernetes.core.k8s:
+      state: patched
+      api_version: route.openshift.io/v1
+      kind: Route
+      name: central
+      namespace: stackrox
+      definition:
+        spec:
+          tls:
+            termination: reencrypt
+            certificate: "{{ r_ingress_cert_secret.resources[0].data['tls.crt'] | b64decode }}"
+            key: "{{ r_ingress_cert_secret.resources[0].data['tls.key'] | b64decode }}"
+            destinationCACertificate: "{{  r_central_tls_secret.resources[0].data['ca.pem'] | b64decode }}"
+            insecureEdgeTerminationPolicy: Redirect
+
+# ACS Secured Cluster Installation
+- name: Get cluster init bundle
+  ansible.builtin.uri:
+    url: "https://{{ f_stackrox_central_addr }}/v1/cluster-init/init-bundles"
+    # random name for init-bundle
+    body: "{ \"name\": \"prod-{{ lookup('password', '/dev/null chars=ascii_lowercase,digits length=8') }}\"}"
+    method: POST
+    user: admin
+    password: "{{ _ocp4_workload_rhacs_central_admin_password }}"
+    body_format: json
+    force_basic_auth: true
+    validate_certs: false
+  register: r_stackrox_cluster_init_response
+
+- name: Store cluster init bundle as a fact
+  ansible.builtin.set_fact:
+    f_stackrox_bundle: "{{ r_stackrox_cluster_init_response.json.kubectlBundle | b64decode }}"
+
+- name: Create init-bundle secrets
+  kubernetes.core.k8s:
+    namespace: stackrox
+    state: present
+    definition: "{{ f_stackrox_bundle }}"
+  register: r_k8s
+  until: r_k8s is successful
+  retries: 30
+  delay: 5
+
+- name: Install Sensor on OpenShift Container Platform
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: platform.stackrox.io/v1alpha1
+      kind: SecuredCluster
+      metadata:
+        namespace: stackrox
+        name: stackrox-secured-cluster-services
+      spec:
+        clusterName: production
+        sensor:
+          resources:
+            requests:
+              cpu: '500m'
+              memory: 1Gi
+            limits:
+              cpu: '2'
+              memory: 4Gi
+        admissionControl:
+          listenOnCreates: true
+          listenOnEvents: true
+          listenOnUpdates: true
+          bypass: BreakGlassAnnotation
+          timeoutSeconds: 3
+          contactImageScanners: ScanIfMissing
+        perNode:
+          collector:
+            collection: EBPF
+            imageFlavor: Regular
+          taintToleration: TolerateTaints
+  register: r_k8s
+  until: r_k8s is successful
+  retries: 30
+  delay: 5
+
+- name: Wait for ready sensor
+  kubernetes.core.k8s_info:
+    name: sensor
+    kind: Deployment
+    api_version: apps/v1
+    namespace: stackrox
+  register: r_stackrox_sensor_deployment
+  until:
+    - r_stackrox_sensor_deployment.resources[0].status.readyReplicas is defined
+    - r_stackrox_sensor_deployment.resources[0].status.readyReplicas | int >= 1
+  delay: 20
+  retries: 15
+
+- name: For fun, create a link in the OpenShift Console
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: console.openshift.io/v1
+      kind: ConsoleLink
+      metadata:
+        name: acs-console-link
+      spec:
+        applicationMenu:
+          imageURL: 'https://upload.wikimedia.org/wikipedia/commons/3/3a/OpenShift-LogoType.svg'
+          section: Red Hat Applications
+        href: 'https://{{ f_stackrox_central_addr }}'
+        location: ApplicationMenu
+        text: Red Hat Advanced Cluster Security for Kubernetes
+  register: r_k8s
+  until: r_k8s is successful
+  retries: 30
+  delay: 5
+
+- name: Get the ACS portal route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: central
+    namespace: stackrox
+  register: r_acs_portal_route
+  until: r_acs_portal_route is successful
+  retries: 30
+  delay: 5
+
+- name: Set fact for ACS route
+  ansible.builtin.set_fact:
+    acs_route: "https://{{ r_acs_portal_route.resources[0].spec.host }}"
+
+- name: Print user info
+  agnosticd.core.agnosticd_user_info:
+    msg: "{{ item }}"
+  loop:
+  - ""
+  - "Your RHACS console is available at: {{ acs_route }}"
+  - "RHACS portal username: admin"
+  - "RHACS portal password: {{ _ocp4_workload_rhacs_central_admin_password }}"
+
+- name: Save user data
+  agnosticd.core.agnosticd_user_info:
+    data:
+      acs_route: "{{ acs_route }}"
+      acs_portal_username: admin
+      acs_portal_password: "{{ _ocp4_workload_rhacs_central_admin_password }}"

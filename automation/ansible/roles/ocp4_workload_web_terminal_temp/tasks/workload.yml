@@ -1,0 +1,101 @@
+---
+# ==============================================================================
+# DIAGNOSTICS - Cluster state before this workload
+# ==============================================================================
+- name: "DIAG - Cluster state checkpoint"
+  shell: |
+    echo "=== NODE USAGE ==="
+    oc adm top nodes 2>/dev/null || echo "Metrics not available"
+    echo ""
+    echo "=== PODS: Running=$(oc get pods -A --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l) Pending=$(oc get pods -A --field-selector=status.phase=Pending --no-headers 2>/dev/null | wc -l) Failed=$(oc get pods -A --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l) Total=$(oc get pods -A --no-headers 2>/dev/null | wc -l) ==="
+    echo ""
+    echo "=== PENDING PODS ==="
+    oc get pods -A --field-selector=status.phase=Pending --no-headers 2>/dev/null | head -10 || echo "None"
+    echo ""
+    echo "=== CSVs NOT SUCCEEDED ==="
+    oc get csv -A --no-headers 2>/dev/null | grep -v Succeeded | head -10 || echo "All succeeded"
+    echo ""
+    echo "=== PENDING PVCs ==="
+    oc get pvc -A --field-selector=status.phase!=Bound --no-headers 2>/dev/null | head -10 || echo "All bound"
+  register: diag_pre_workload
+  ignore_errors: true
+
+- name: "DIAG - Display pre-workload state"
+  debug:
+    msg: "{{ diag_pre_workload.stdout_lines | default(['no output']) }}"
+  when: diag_pre_workload is defined
+  ignore_errors: true
+
+# ==============================================================================
+# WORKLOAD with post-failure diagnostics
+# ==============================================================================
+- name: Run workload with failure capture
+  block:
+    - name: Install Web Terminal operator
+      ansible.builtin.include_role:
+        name: install_operator
+      vars:
+        install_operator_action: install
+        install_operator_name: web-terminal
+        install_operator_namespace: openshift-operators
+        install_operator_channel: "{{ ocp4_workload_web_terminal_channel }}"
+        install_operator_catalog: redhat-operators
+        install_operator_automatic_install_plan_approval: "{{ ocp4_workload_web_terminal_automatic_install_plan_approval | default(true) }}"
+        install_operator_starting_csv: "{{ ocp4_workload_web_terminal_starting_csv }}"
+        install_operator_catalogsource_setup: "{{ ocp4_workload_web_terminal_use_catalog_snapshot | default(false) }}"
+        install_operator_catalogsource_name: "{{ ocp4_workload_web_terminal_catalogsource_name | default('') }}"
+        install_operator_catalogsource_namespace: openshift-operators
+        install_operator_catalogsource_image: "{{ ocp4_workload_web_terminal_catalog_snapshot_image | default('') }}"
+        install_operator_catalogsource_image_tag: "{{ ocp4_workload_web_terminal_catalog_snapshot_image_tag | default('') }}"
+
+    - name: Create dev workspaces for multiple users
+      when: ocp4_workload_web_terminal_configure | bool
+      ansible.builtin.include_tasks: setup_web_terminal.yml
+      loop: "{{ range(1, ocp4_workload_web_terminal_num_users | int + 1) | list }}"
+
+
+  rescue:
+    - name: "DIAG - POST-FAILURE state for ocp4_workload_web_terminal"
+      shell: |
+        echo "====================================================================="
+        echo "WORKLOAD FAILED: ocp4_workload_web_terminal"
+        echo "====================================================================="
+        echo ""
+        echo "=== NODE USAGE AT FAILURE ==="
+        oc adm top nodes 2>/dev/null || echo "Metrics not available"
+        echo ""
+        echo "=== PODS BY PHASE ==="
+        echo "Running: $(oc get pods -A --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)"
+        echo "Pending: $(oc get pods -A --field-selector=status.phase=Pending --no-headers 2>/dev/null | wc -l)"
+        echo "Failed: $(oc get pods -A --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l)"
+        echo "Total: $(oc get pods -A --no-headers 2>/dev/null | wc -l)"
+        echo ""
+        echo "=== PENDING PODS ==="
+        oc get pods -A --field-selector=status.phase=Pending -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers 2>/dev/null | head -20 || echo "None"
+        echo ""
+        echo "=== CSVs NOT SUCCEEDED ==="
+        oc get csv -A --no-headers 2>/dev/null | grep -v Succeeded | head -20 || echo "All succeeded"
+        echo ""
+        echo "=== PENDING PVCs ==="
+        oc get pvc -A --field-selector=status.phase!=Bound --no-headers 2>/dev/null | head -10 || echo "All bound"
+        echo ""
+        echo "=== FAILEDSCHEDULING EVENTS ==="
+        oc get events -A --field-selector reason=FailedScheduling --no-headers 2>/dev/null | tail -10 || echo "None"
+        echo ""
+        echo "=== IMAGE PULL ERRORS ==="
+        oc get events -A --field-selector reason=Failed --no-headers 2>/dev/null | grep -i "pull\|image\|registry" | tail -10 || echo "None"
+        echo ""
+        echo "=== RECENT WARNINGS (last 20) ==="
+        oc get events -A --field-selector type=Warning --sort-by='.lastTimestamp' --no-headers 2>/dev/null | tail -20 || echo "None"
+      register: diag_post_failure
+      ignore_errors: true
+
+    - name: "DIAG - Display post-failure state"
+      debug:
+        msg: "{{ diag_post_failure.stdout_lines | default(['no output']) }}"
+      when: diag_post_failure is defined
+      ignore_errors: true
+
+    - name: Fail with original error
+      fail:
+        msg: "Workload ocp4_workload_web_terminal failed. See diagnostics above."

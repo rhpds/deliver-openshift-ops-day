@@ -1,0 +1,10 @@
+---
+- name: Final cluster cleanup pass
+  when: ACTION == "provision"
+  ansible.builtin.include_role:
+    name: openshift_days.ops_track.ocp4_workload_cluster_cleanup
+
+- name: Skip cleanup on destroy
+  when: ACTION == "destroy"
+  debug:
+    msg: "Skipping cluster cleanup on destroy"

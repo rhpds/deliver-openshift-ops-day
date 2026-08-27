@@ -1,0 +1,161 @@
+---
+- name: Ensure namespace exists
+  kubernetes.core.k8s:
+    state: present
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_days_workload_vault_namespace }}"
+
+- name: Add HashiCorp Helm repo
+  command: >-
+    helm repo add {{ ocp4_days_workload_vault_helm_repo_name }}
+    {{ ocp4_days_workload_vault_helm_repo_url }}
+  register: r_helm_repo
+  changed_when: "'has been added' in r_helm_repo.stdout"
+  failed_when: r_helm_repo.rc != 0 and 'already exists' not in r_helm_repo.stderr
+  ignore_errors: true
+
+- name: Update Helm repo
+  command: helm repo update {{ ocp4_days_workload_vault_helm_repo_name }}
+  ignore_errors: true
+
+- name: Get cluster ingress domain
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: r_ingress
+
+- name: Set Vault route host
+  set_fact:
+    _vault_route_host: "vault.{{ r_ingress.resources[0].spec.domain }}"
+
+- name: DEBUG - Vault install parameters
+  ansible.builtin.debug:
+    msg:
+      - "Namespace: {{ ocp4_days_workload_vault_namespace }}"
+      - "Route host: {{ _vault_route_host }}"
+      - "Server image: {{ ocp4_days_workload_vault_server_image }}:{{ ocp4_days_workload_vault_server_tag }}"
+      - "Injector image: {{ ocp4_days_workload_vault_injector_image }}:{{ ocp4_days_workload_vault_injector_tag }}"
+
+- name: Install Vault via Helm
+  command: >-
+    helm upgrade --install {{ ocp4_days_workload_vault_helm_release }}
+    {{ ocp4_days_workload_vault_chart }}
+    --namespace {{ ocp4_days_workload_vault_namespace }}
+    --values {{ role_path }}/files/vault-values.yml
+    --set-string server.route.host={{ _vault_route_host }}
+    --set-string server.image.repository={{ ocp4_days_workload_vault_server_image }}
+    --set-string server.image.tag={{ ocp4_days_workload_vault_server_tag }}
+    --set-string injector.image.repository={{ ocp4_days_workload_vault_injector_image }}
+    --set-string injector.image.tag={{ ocp4_days_workload_vault_injector_tag }}
+    --set-string injector.agentImage.repository={{ ocp4_days_workload_vault_server_image }}
+    --set-string injector.agentImage.tag={{ ocp4_days_workload_vault_server_tag }}
+    --set-string server.dev.devRootToken={{ ocp4_days_workload_vault_dev_root_token }}
+    --wait --timeout 10m
+  register: r_helm_install
+
+- name: DEBUG - Helm install output
+  ansible.builtin.debug:
+    msg: "{{ r_helm_install.stdout_lines | default(['no output']) }}"
+  ignore_errors: true
+
+- name: DEBUG - Helm install errors
+  ansible.builtin.debug:
+    msg: "{{ r_helm_install.stderr_lines | default(['no errors']) }}"
+  when: r_helm_install is failed
+  ignore_errors: true
+
+- name: Wait for Vault server pod to be ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ ocp4_days_workload_vault_namespace }}"
+    label_selectors:
+      - "app.kubernetes.io/name=vault"
+      - "component=server"
+  register: r_vault_pod
+  until:
+    - r_vault_pod.resources | length > 0
+    - r_vault_pod.resources[0].status.phase == 'Running'
+    - r_vault_pod.resources[0].status.containerStatuses is defined
+    - r_vault_pod.resources[0].status.containerStatuses | selectattr('ready', 'equalto', true) | list | length > 0
+  retries: 30
+  delay: 10
+
+- name: DEBUG - Vault pods
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ ocp4_days_workload_vault_namespace }}"
+  register: r_vault_pods
+  ignore_errors: true
+
+- name: DEBUG - Display Vault pods
+  ansible.builtin.debug:
+    msg:
+      - "Pods: {{ r_vault_pods.resources | default([]) | map(attribute='metadata.name') | list }}"
+      - "Statuses: {{ r_vault_pods.resources | default([]) | map(attribute='status.phase') | list }}"
+  when: r_vault_pods.resources | default([]) | length > 0
+  ignore_errors: true
+
+- name: Get Vault route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ ocp4_days_workload_vault_helm_release }}"
+    namespace: "{{ ocp4_days_workload_vault_namespace }}"
+  register: r_vault_route
+  ignore_errors: true
+
+- name: Check if cert-manager is available
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: certificates.cert-manager.io
+  register: r_certmanager_crd
+  ignore_errors: true
+
+- name: Create self-signed ClusterIssuer for Vault route
+  when: r_certmanager_crd.resources | default([]) | length > 0
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: cert-manager.io/v1
+      kind: ClusterIssuer
+      metadata:
+        name: vault-lab-issuer
+      spec:
+        selfSigned: {}
+  ignore_errors: true
+
+- name: Annotate Vault route for cert-manager TLS
+  when:
+    - r_certmanager_crd.resources | default([]) | length > 0
+    - r_vault_route.resources | default([]) | length > 0
+  kubernetes.core.k8s:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: "{{ ocp4_days_workload_vault_helm_release }}"
+    namespace: "{{ ocp4_days_workload_vault_namespace }}"
+    state: patched
+    definition:
+      metadata:
+        annotations:
+          cert-manager.io/issuer: vault-lab-issuer
+          cert-manager.io/issuer-kind: ClusterIssuer
+  ignore_errors: true
+
+- name: DEBUG - Vault route
+  ansible.builtin.debug:
+    msg: "Route: https://{{ r_vault_route.resources[0].spec.host | default('NOT FOUND') }}/"
+  when: r_vault_route.resources | default([]) | length > 0
+  ignore_errors: true
+
+- name: Vault installation complete
+  ansible.builtin.debug:
+    msg:
+      - "Vault deployed in namespace {{ ocp4_days_workload_vault_namespace }}"
+      - "UI: https://{{ r_vault_route.resources[0].spec.host | default(_vault_route_host) }}/"
+      - "Dev root token: {{ ocp4_days_workload_vault_dev_root_token }}"
+  ignore_errors: true

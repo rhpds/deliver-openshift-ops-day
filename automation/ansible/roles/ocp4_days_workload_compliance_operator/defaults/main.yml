@@ -1,0 +1,20 @@
+---
+# Compliance Operator Workload Defaults
+
+# Operator channel
+ocp4_days_workload_compliance_operator_channel: stable
+
+# Operator namespace (must be openshift-compliance)
+ocp4_days_workload_compliance_operator_namespace: openshift-compliance
+
+# Use catalog snapshot for reproducible deployments
+ocp4_days_workload_compliance_operator_use_catalog_snapshot: true
+ocp4_days_workload_compliance_operator_catalogsource_name: redhat-operators-snapshot-compliance
+ocp4_days_workload_compliance_operator_catalog_snapshot_image: quay.io/gpte-devops-automation/olm_snapshot_redhat_catalog
+ocp4_days_workload_compliance_operator_catalog_snapshot_image_tag: ""
+
+# Automatic install plan approval
+ocp4_days_workload_compliance_operator_automatic_install_plan_approval: true
+
+# Deploy ScanSettingBinding for default scans (optional)
+ocp4_days_workload_compliance_operator_deploy_default_scans: false

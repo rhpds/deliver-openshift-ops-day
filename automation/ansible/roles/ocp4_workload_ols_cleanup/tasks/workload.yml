@@ -1,0 +1,39 @@
+---
+# The upstream OLS role (agnosticd.ai_workloads.ocp4_workload_ols) defaults
+# ocp4_workload_ai_platform: azure which creates an OLSConfig automatically.
+# We can't undefine that variable from agnosticv (role defaults always apply).
+# Instead, this cleanup role runs immediately after OLS and deletes the
+# OLSConfig. What remains on the cluster:
+#   - Operator: installed and running (lightspeed-operator CSV)
+#   - Secret: azure-api-keys with Azure OpenAI credentials
+#   - Namespace: openshift-lightspeed
+# Students follow openshift-lightspeed.adoc to create the OLSConfig manually.
+
+- name: Delete OLSConfig created by upstream role
+  kubernetes.core.k8s:
+    api_version: ols.openshift.io/v1alpha1
+    kind: OLSConfig
+    name: cluster
+    state: absent
+  register: r_olsconfig_delete
+  ignore_errors: true
+
+- name: Wait for OLS pods to terminate
+  when: r_olsconfig_delete is changed
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: openshift-lightspeed
+    label_selectors:
+    - app.kubernetes.io/managed-by=lightspeed-operator
+  register: r_ols_pods
+  until: r_ols_pods.resources | length == 0
+  retries: 30
+  delay: 5
+  ignore_errors: true
+
+- name: OLS cleanup status
+  debug:
+    msg: >-
+      OLSConfig {{ 'deleted - operator installed, secrets intact, students will create config manually'
+      if r_olsconfig_delete is changed else 'not found - nothing to clean up' }}.

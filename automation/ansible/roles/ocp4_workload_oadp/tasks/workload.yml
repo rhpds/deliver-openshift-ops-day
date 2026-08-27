@@ -1,0 +1,33 @@
+---
+# ==============================================================================
+# DEBUG - OADP pre-flight checks
+# ==============================================================================
+- name: DEBUG - OADP input variables
+  debug:
+    msg:
+      - "=== OADP CONFIG ==="
+      - "channel: {{ ocp4_workload_oadp_channel }}"
+      - "multi_user: {{ ocp4_workload_oadp_multi_user }}"
+      - "configure_dpa: {{ ocp4_workload_oadp_configure_dpa }}"
+      - "storage: {{ ocp4_workload_oadp_storage }}"
+      - "use_catalog_snapshot: {{ ocp4_workload_oadp_use_catalog_snapshot | default('undefined') }}"
+      - "catalogsource_name: {{ ocp4_workload_oadp_catalogsource_name | default('undefined') }}"
+      - "catalog_snapshot_image: {{ ocp4_workload_oadp_catalog_snapshot_image | default('undefined') }}"
+      - "catalog_snapshot_image_tag: {{ ocp4_workload_oadp_catalog_snapshot_image_tag | default('undefined') }}"
+      - "automatic_install_plan_approval: {{ ocp4_workload_oadp_automatic_install_plan_approval }}"
+      - "starting_csv: {{ ocp4_workload_oadp_starting_csv | default('') }}"
+  ignore_errors: true
+
+- name: Install OADP Operator for single user
+  when: not ocp4_workload_oadp_multi_user | bool
+  ansible.builtin.include_tasks: oadp_single_user_install.yml
+
+- name: Install OADP Operator for multi-user
+  when: ocp4_workload_oadp_multi_user | bool
+  ansible.builtin.include_tasks: oadp_multi_user_install.yml
+
+# Leave this as the last task in the playbook.
+- name: Workload tasks complete
+  when: not silent|bool
+  ansible.builtin.debug:
+    msg: "Workload Tasks completed successfully."

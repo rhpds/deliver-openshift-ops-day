@@ -1,0 +1,166 @@
+---
+# ==============================================================================
+# Compliance Operator Workload
+#
+# Installs the compliance operator if not already present. On clusters with ACM
+# enabled, the prepare_hcp role (sovereign_cloud collection) deploys the
+# compliance operator via an ACM OperatorPolicy. In that case, this role skips
+# the install and just waits for everything to be ready.
+#
+# When ACM is not enabled (security module only), this role handles the full
+# install via the upstream install_operator role.
+# ==============================================================================
+
+- name: Ensure openshift-compliance namespace exists
+  kubernetes.core.k8s:
+    state: present
+    api_version: v1
+    kind: Namespace
+    name: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+  register: r_namespace
+  until: r_namespace is successful
+  retries: 10
+  delay: 5
+
+- name: Check if compliance operator is already installed (e.g. by ACM policy)
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: compliance-operator
+    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+  register: r_existing_subscription
+
+- name: DEBUG - Existing installation check
+  ansible.builtin.debug:
+    msg: >-
+      {{ 'Compliance operator already installed (likely via ACM policy) — skipping install_operator'
+      if r_existing_subscription.resources | length > 0
+      else 'No existing installation found — installing via install_operator role' }}
+
+# Only call install_operator if the subscription doesn't already exist.
+# When ACM is enabled, prepare_hcp creates the subscription via OperatorPolicy.
+# Calling install_operator on top of that creates a duplicate OperatorGroup,
+# which causes the CSV to fail with TooManyOperatorGroups.
+- name: Install Compliance Operator
+  when: r_existing_subscription.resources | length == 0
+  ansible.builtin.include_role:
+    name: install_operator
+  vars:
+    install_operator_action: install
+    install_operator_name: compliance-operator
+    install_operator_namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+    install_operator_channel: "{{ ocp4_days_workload_compliance_operator_channel }}"
+    install_operator_automatic_install_plan_approval: "{{ ocp4_days_workload_compliance_operator_automatic_install_plan_approval }}"
+    install_operator_use_catalog_snapshot: "{{ ocp4_days_workload_compliance_operator_use_catalog_snapshot }}"
+    install_operator_catalogsource_name: "{{ ocp4_days_workload_compliance_operator_catalogsource_name }}"
+    install_operator_catalogsource_image: "{{ ocp4_days_workload_compliance_operator_catalog_snapshot_image }}"
+    install_operator_catalogsource_image_tag: "{{ ocp4_days_workload_compliance_operator_catalog_snapshot_image_tag }}"
+    # On busy compact clusters the CSV can take >15 min to reach Succeeded,
+    # exceeding the upstream role's timeout. Let it fail silently — our own
+    # deployment wait (below) gives it another 10 minutes to come up.
+    install_operator_install_csv_ignore_error: true
+
+# From here on, wait for the operator to be ready regardless of how it was installed.
+
+- name: Get Subscription status
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: compliance-operator
+    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+  register: r_subscription
+
+- name: DEBUG - Subscription status
+  ansible.builtin.debug:
+    msg:
+      - "Subscription found: {{ r_subscription.resources | length > 0 }}"
+      - "Installed CSV: {{ r_subscription.resources[0].status.installedCSV | default('not yet') }}"
+      - "State: {{ r_subscription.resources[0].status.state | default('unknown') }}"
+  when: r_subscription.resources | length > 0
+
+- name: Wait for Compliance Operator deployment to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: compliance-operator
+    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+  register: r_deployment
+  until:
+    - r_deployment.resources | length > 0
+    - r_deployment.resources[0].status.readyReplicas is defined
+    - r_deployment.resources[0].status.readyReplicas | int >= 1
+  retries: 60
+  delay: 10
+
+- name: DEBUG - Deployment status
+  ansible.builtin.debug:
+    msg:
+      - "Deployment ready replicas: {{ r_deployment.resources[0].status.readyReplicas | default(0) }}"
+      - "Deployment available: {{ r_deployment.resources[0].status.availableReplicas | default(0) }}"
+
+- name: Get CSV status
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/compliance-operator.openshift-compliance"
+  register: r_csv
+
+- name: DEBUG - CSV status
+  ansible.builtin.debug:
+    msg:
+      - "CSV Name: {{ r_csv.resources[0].metadata.name | default('not found') }}"
+      - "CSV Phase: {{ r_csv.resources[0].status.phase | default('unknown') }}"
+      - "CSV Version: {{ r_csv.resources[0].spec.version | default('unknown') }}"
+  when: r_csv.resources | length > 0
+
+- name: Wait for ProfileBundle CRDs to be available
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: profilebundles.compliance.openshift.io
+  register: r_crd
+  until: r_crd.resources | length > 0
+  retries: 30
+  delay: 10
+
+- name: DEBUG - ProfileBundle CRD available
+  ansible.builtin.debug:
+    msg: "ProfileBundle CRD is available"
+
+- name: Wait for ProfileBundles to be parsed
+  kubernetes.core.k8s_info:
+    api_version: compliance.openshift.io/v1alpha1
+    kind: ProfileBundle
+    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+  register: r_profilebundles
+  until:
+    - r_profilebundles.resources | length >= 2
+    - r_profilebundles.resources | selectattr('status.dataStreamStatus', 'defined') | selectattr('status.dataStreamStatus', 'equalto', 'VALID') | list | length >= 2
+  retries: 60
+  delay: 10
+
+- name: DEBUG - ProfileBundle status
+  ansible.builtin.debug:
+    msg:
+      - "ProfileBundles found: {{ r_profilebundles.resources | length }}"
+      - "ProfileBundle names: {{ r_profilebundles.resources | map(attribute='metadata.name') | list }}"
+      - "ProfileBundle statuses: {{ r_profilebundles.resources | map(attribute='status.dataStreamStatus') | list }}"
+
+- name: Get pods in namespace
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+  register: r_pods
+
+- name: DEBUG - Pods running
+  ansible.builtin.debug:
+    msg:
+      - "Pods in namespace: {{ r_pods.resources | map(attribute='metadata.name') | list }}"
+      - "Pod statuses: {{ r_pods.resources | map(attribute='status.phase') | list }}"
+
+- name: Compliance Operator installation complete
+  ansible.builtin.debug:
+    msg: "Compliance Operator installed successfully. ProfileBundles are ready."

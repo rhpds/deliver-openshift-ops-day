@@ -1,0 +1,9 @@
+---
+- name: Clean up cluster resources
+  when: ACTION == "provision"
+  ansible.builtin.include_tasks: workload.yml
+
+- name: Skip cleanup on destroy
+  when: ACTION == "destroy"
+  debug:
+    msg: "Skipping cluster cleanup on destroy"

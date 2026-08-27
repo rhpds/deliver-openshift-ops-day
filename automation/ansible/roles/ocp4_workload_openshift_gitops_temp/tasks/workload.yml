@@ -1,0 +1,178 @@
+---
+# ==============================================================================
+# DIAGNOSTICS - Cluster state before this workload
+# ==============================================================================
+- name: "DIAG - Cluster state checkpoint"
+  shell: |
+    echo "=== NODE USAGE ==="
+    oc adm top nodes 2>/dev/null || echo "Metrics not available"
+    echo ""
+    echo "=== PODS: Running=$(oc get pods -A --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l) Pending=$(oc get pods -A --field-selector=status.phase=Pending --no-headers 2>/dev/null | wc -l) Failed=$(oc get pods -A --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l) Total=$(oc get pods -A --no-headers 2>/dev/null | wc -l) ==="
+    echo ""
+    echo "=== PENDING PODS ==="
+    oc get pods -A --field-selector=status.phase=Pending --no-headers 2>/dev/null | head -10 || echo "None"
+    echo ""
+    echo "=== CSVs NOT SUCCEEDED ==="
+    oc get csv -A --no-headers 2>/dev/null | grep -v Succeeded | head -10 || echo "All succeeded"
+    echo ""
+    echo "=== PENDING PVCs ==="
+    oc get pvc -A --field-selector=status.phase!=Bound --no-headers 2>/dev/null | head -10 || echo "All bound"
+  register: diag_pre_workload
+  ignore_errors: true
+
+- name: "DIAG - Display pre-workload state"
+  debug:
+    msg: "{{ diag_pre_workload.stdout_lines | default(['no output']) }}"
+  when: diag_pre_workload is defined
+  ignore_errors: true
+
+# ==============================================================================
+# WORKLOAD with post-failure diagnostics
+# ==============================================================================
+- name: Run workload with failure capture
+  block:
+    - name: Set _ocp4_workload_openshift_gitops_domain
+      ansible.builtin.set_fact:
+        _ocp4_workload_openshift_gitops_domain: "{{ openshift_cluster_ingress_domain }}"
+
+    - name: Install OpenShift GitOps operator
+      ansible.builtin.include_role:
+        name: install_operator
+      vars:
+        install_operator_action: install
+        install_operator_name: openshift-gitops-operator
+        install_operator_namespace: openshift-gitops-operator
+        install_operator_channel: "{{ ocp4_workload_openshift_gitops_channel }}"
+        install_operator_catalog: redhat-operators
+        install_operator_automatic_install_plan_approval: "{{ ocp4_workload_openshift_gitops_automatic_install_plan_approval | default(true) }}"
+        install_operator_starting_csv: "{{ ocp4_workload_openshift_gitops_starting_csv }}"
+        install_operator_catalogsource_setup: "{{ ocp4_workload_openshift_gitops_use_catalog_snapshot | default(false) }}"
+        install_operator_catalogsource_name: "{{ ocp4_workload_openshift_gitops_catalogsource_name | default('') }}"
+        install_operator_catalogsource_namespace: openshift-gitops-operator
+        install_operator_catalogsource_image: "{{ ocp4_workload_openshift_gitops_catalog_snapshot_image | default('') }}"
+        install_operator_catalogsource_image_tag: "{{ ocp4_workload_openshift_gitops_catalog_snapshot_image_tag | default('') }}"
+
+    - name: Grant cluster-admin permissions to Gitops Service account
+      when: ocp4_workload_openshift_gitops_setup_cluster_admin | bool
+      kubernetes.core.k8s:
+        state: present
+        src: clusterrolebinding.yaml
+
+    - name: Wait until openshift-gitops ArgoCD instance has been created
+      kubernetes.core.k8s_info:
+        api_version: argoproj.io/v1beta1
+        kind: ArgoCD
+        name: openshift-gitops
+        namespace: openshift-gitops
+      register: r_openshift_gitops
+      retries: 16
+      delay: 60
+      until:
+      - r_openshift_gitops is defined
+      - r_openshift_gitops.resources is defined
+      - r_openshift_gitops.resources | length == 1
+
+    - name: Create the kustomize-envvar plugin configmap
+      when: ocp4_workload_openshift_gitops_kustomize_plugin | bool
+      kubernetes.core.k8s:
+        state: present
+        src: cm-kustomize-envvar.yaml
+
+    - name: Update the openshift-gitops ArgoCD instance
+      kubernetes.core.k8s:
+        state: patched
+        template: openshift-gitops.yaml.j2
+
+    - name: Create per-user AppProjects
+      when: ocp4_workload_openshift_gitops_per_user_access | bool
+      kubernetes.core.k8s:
+        state: present
+        template: appproject-user.yaml.j2
+      loop: "{{ range(1, ocp4_workload_openshift_gitops_user_count | int + 1) | list }}"
+      loop_control:
+        loop_var: _user_num
+      vars:
+        _username: "{{ ocp4_workload_openshift_gitops_user_base }}{{ _user_num }}"
+
+    - name: Attempt to install the ArgoCD CLI to the bastion
+      when: ocp4_workload_openshift_gitops_install_cli_tools | bool
+      block:
+      - name: Get the OpenShift Gitops ArgoCD server route
+        kubernetes.core.k8s_info:
+          api_version: route.openshift.io/v1
+          kind: Route
+          name: openshift-gitops-server
+          namespace: openshift-gitops
+        register: r_openshift_gitops_server_route
+
+      - name: Try to install the ArgoCD CLI
+        become: true
+        delegate_to: "{{ groups['bastions'][0] }}"
+        ansible.builtin.get_url:
+          url: >-
+            https://{{ r_openshift_gitops_server_route.resources[0].spec.host }}/download/argocd-linux-amd64
+          dest: /usr/bin/argocd
+          validate_certs: false
+          owner: root
+          group: root
+          mode: ug=rwx,o=rx
+        retries: 10
+        delay: 5
+        ignore_errors: true
+
+    # yamllint disable rule:line-length
+    - name: Save AgnosticD User data
+      block:
+      - name: Print project information
+        agnosticd.core.agnosticd_user_info:
+          msg: "OpenShift GitOps ArgoCD: https://openshift-gitops-server-openshift-gitops.{{ _ocp4_workload_openshift_gitops_domain }}"
+          data:
+            openshift_gitops_server: "https://openshift-gitops-server-openshift-gitops.{{ _ocp4_workload_openshift_gitops_domain }}"
+    # yamllint enable rule:line-length
+
+
+  rescue:
+    - name: "DIAG - POST-FAILURE state for ocp4_workload_openshift_gitops"
+      shell: |
+        echo "====================================================================="
+        echo "WORKLOAD FAILED: ocp4_workload_openshift_gitops"
+        echo "====================================================================="
+        echo ""
+        echo "=== NODE USAGE AT FAILURE ==="
+        oc adm top nodes 2>/dev/null || echo "Metrics not available"
+        echo ""
+        echo "=== PODS BY PHASE ==="
+        echo "Running: $(oc get pods -A --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)"
+        echo "Pending: $(oc get pods -A --field-selector=status.phase=Pending --no-headers 2>/dev/null | wc -l)"
+        echo "Failed: $(oc get pods -A --field-selector=status.phase=Failed --no-headers 2>/dev/null | wc -l)"
+        echo "Total: $(oc get pods -A --no-headers 2>/dev/null | wc -l)"
+        echo ""
+        echo "=== PENDING PODS ==="
+        oc get pods -A --field-selector=status.phase=Pending -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name --no-headers 2>/dev/null | head -20 || echo "None"
+        echo ""
+        echo "=== CSVs NOT SUCCEEDED ==="
+        oc get csv -A --no-headers 2>/dev/null | grep -v Succeeded | head -20 || echo "All succeeded"
+        echo ""
+        echo "=== PENDING PVCs ==="
+        oc get pvc -A --field-selector=status.phase!=Bound --no-headers 2>/dev/null | head -10 || echo "All bound"
+        echo ""
+        echo "=== FAILEDSCHEDULING EVENTS ==="
+        oc get events -A --field-selector reason=FailedScheduling --no-headers 2>/dev/null | tail -10 || echo "None"
+        echo ""
+        echo "=== IMAGE PULL ERRORS ==="
+        oc get events -A --field-selector reason=Failed --no-headers 2>/dev/null | grep -i "pull\|image\|registry" | tail -10 || echo "None"
+        echo ""
+        echo "=== RECENT WARNINGS (last 20) ==="
+        oc get events -A --field-selector type=Warning --sort-by='.lastTimestamp' --no-headers 2>/dev/null | tail -20 || echo "None"
+      register: diag_post_failure
+      ignore_errors: true
+
+    - name: "DIAG - Display post-failure state"
+      debug:
+        msg: "{{ diag_post_failure.stdout_lines | default(['no output']) }}"
+      when: diag_post_failure is defined
+      ignore_errors: true
+
+    - name: Fail with original error
+      fail:
+        msg: "Workload ocp4_workload_openshift_gitops failed. See diagnostics above."

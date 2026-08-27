@@ -1,0 +1,22 @@
+global:
+  openshift: true
+
+injector:
+  enabled: true
+
+server:
+  dev:
+    enabled: true
+
+  ui:
+    enabled: true
+
+  route:
+    enabled: true
+    activeService: true
+    tls:
+      termination: edge
+      insecureEdgeTerminationPolicy: Allow
+
+csi:
+  enabled: false
