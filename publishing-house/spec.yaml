@@ -46,7 +46,7 @@ spec:
       status: not_started
   environment:
     platform: "ocp"
-    topology: "one-cluster-per-student"
+    topology: "per-student"
     cloud_provider: cnv
     max_concurrent_users: 100
 
