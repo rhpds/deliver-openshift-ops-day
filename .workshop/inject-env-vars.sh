@@ -10,12 +10,12 @@
 set -e
 
 REPO_DIR="/showroom/repo"
-SITE_FILE="${REPO_DIR}/default-site.yml"
+SITE_FILE="${REPO_DIR}/site.yml"
 
 echo "=== Injecting workshop environment variables ==="
 echo "Working directory: ${REPO_DIR}"
 
-# Check if default-site.yml exists
+# Check if site.yml exists
 if [ ! -f "$SITE_FILE" ]; then
     echo "ERROR: ${SITE_FILE} not found"
     exit 1
