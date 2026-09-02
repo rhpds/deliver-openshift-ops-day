@@ -1519,7 +1519,7 @@
 - name: Rebuild Antora site with injected variables
   shell: |
     oc exec deployment/showroom -n {{ showroom_namespace }} -c content -- bash -c '
-    cd /showroom/repo && npx antora default-site.yml'
+    cd /showroom/repo && npx antora site.yml'
   register: antora_build_result
   when: enable_workshop_cli_tools | default(true) | bool
 
