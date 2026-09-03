@@ -21,14 +21,14 @@ This module provides a hands-on deep-dive into OpenShift's HAProxy-based Ingress
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Inspect default IngressController | 3 min |
-| Create edge-TLS Route with custom cert | 5 min |
-| Configure passthrough and re-encrypt Routes | 5 min |
-| Apply HSTS header annotations | 4 min |
-| Configure rate limiting | 5 min |
-| Verify routing and test behavior | 3 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Inspect default IngressController | 3 min |
+| 2 | Create edge-TLS Route with custom cert | 5 min |
+| 3 | Configure passthrough and re-encrypt Routes | 5 min |
+| 4 | Apply HSTS header annotations | 4 min |
+| 5 | Configure rate limiting | 5 min |
+| 6 | Verify routing and test behavior | 3 min |
 
 ## Key Takeaways
 

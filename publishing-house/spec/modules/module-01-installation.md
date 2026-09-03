@@ -21,14 +21,14 @@ This module covers post-installation health validation for an OpenShift 4.20 clu
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Inspect ClusterOperators | 2 min |
-| Check cluster version and update channel | 1 min |
-| Verify MachineConfigPools | 2 min |
-| Validate networking (OVN-Kubernetes) | 2 min |
-| Confirm storage classes and ODF | 2 min |
-| Check etcd health | 1 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Inspect ClusterOperators | 2 min |
+| 2 | Check cluster version and update channel | 1 min |
+| 3 | Verify MachineConfigPools | 2 min |
+| 4 | Validate networking (OVN-Kubernetes) | 2 min |
+| 5 | Confirm storage classes and ODF | 2 min |
+| 6 | Check etcd health | 1 min |
 
 ## Key Takeaways
 

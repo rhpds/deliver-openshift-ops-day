@@ -21,14 +21,14 @@ This module walks through the full application lifecycle on OpenShift: deploying
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Deploy application and inspect pods | 3 min |
-| Expose via Service and Route | 2 min |
-| Scale replicas and observe self-healing | 3 min |
-| Add liveness and readiness probes | 3 min |
-| Create PodDisruptionBudget | 3 min |
-| Trigger and perform rollback | 3 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Deploy application and inspect pods | 3 min |
+| 2 | Expose via Service and Route | 2 min |
+| 3 | Scale replicas and observe self-healing | 3 min |
+| 4 | Add liveness and readiness probes | 3 min |
+| 5 | Create PodDisruptionBudget | 3 min |
+| 6 | Trigger and perform rollback | 3 min |
 
 ## Key Takeaways
 
