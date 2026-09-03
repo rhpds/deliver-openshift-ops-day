@@ -204,13 +204,40 @@ approval_checklist:
         overview: "Install HashiCorp Vault via Helm, configure the Vault Agent Injector sidecar to deliver secrets to application pods, then install External Secrets Operator and create an ExternalSecret that syncs from Vault."
       - title: "Zero-Trust Workload Identity Manager"
         overview: "Deploy ZTWIM (SPIRE), issue X.509 SVIDs to workloads, configure mTLS between a service and PostgreSQL using the SVIDs, and observe automatic certificate rotation without any secret material in the pod spec."
-    rcars_overlap_pct: 87
+    rcars_overlap_pct: 99
     rcars_top_matches:
-      - title: "OpenShift Ops Day Roadshow"
-        ci_name: "published.openshift-days-ops-track.prod"
-        url: "https://catalog.demo.redhat.com/catalog?item=published.openshift-days-ops-track.prod"
-        relevance_score: 87
-        why_it_fits: "This is the actual OpenShift Ops Day Roadshow workshop content — the same lab this project is migrating into the Publishing House."
+      - title: "Advanced Cluster Management for Kubernetes Demo"
+        ci_name: "published.ocp4-acm-demo.prod"
+        url: "https://catalog.demo.redhat.com/catalog?item=published.ocp4-acm-demo.prod"
+        relevance_score: 99
+        why_it_fits: "Covers RHACM multi-cluster management, OpenShift Virtualization VM lifecycle, OpenShift Lightspeed fleet queries, and ODF — all core topics in this lab — targeting the same intermediate cluster administrator audience."
+        workloads:
+          - role: "ocp4_workload_authentication"
+            collection: "agnosticd.core_workloads"
+          - role: "ocp4_workload_ocp_console_embed"
+            collection: "agnosticd.showroom"
+          - role: "ocp4_workload_ols"
+            collection: "agnosticd.ai_workloads"
+          - role: "ocp4_workload_rhacm"
+            collection: "agnosticd.core_workloads"
+          - role: "ocp4_workload_showroom"
+            collection: "agnosticd.showroom"
+      - title: "Hands-on lab with Red Hat OpenShift Platform Plus (2025)"
+        ci_name: "sandboxes-gpte.opp-hol.prod"
+        url: "https://catalog.demo.redhat.com/catalog?item=sandboxes-gpte.opp-hol.prod"
+        relevance_score: 95
+        why_it_fits: "Covers RHACM, RHACS, OpenShift Virtualization, and multi-cluster management at intermediate level for cluster administrators — a partial overlap with several of this lab's 17 topics."
+      - title: "Sovereign Cloud Architecture with OpenShift"
+        ci_name: "published.sovereign-cloud-lab.prod"
+        url: "https://catalog.demo.redhat.com/catalog?item=published.sovereign-cloud-lab.prod"
+        relevance_score: 78
+        why_it_fits: "Covers RHACM, RHACS, Virtualization, GitOps, and compliance policies at intermediate level, but scoped to sovereign cloud and GDPR scenarios rather than broad operational topics."
+        workloads:
+          - role: "ocp4_workload_cert_manager"
+            collection: "agnosticd.core_workloads"
+          - role: "ocp4_workload_external_odf"
+            collection: "agnosticd.core_workloads"
+    catalog_gap: "The Roadshow is the only catalog item covering all 17 operational topics in a single modular lab. Every close match covers 4–6 topics well but requires pairing with multiple other labs to achieve the same breadth. The Roadshow's modular delivery format — select any subset of 17 modules via catalog parameters — is also unique in the catalog. Topics absent from all top matches include OpenShift Logging (Loki + Vector), identity federation (LDAP + OIDC with group sync), ZTWIM/mTLS workload identity, and scenario-based debugging exercises."
     rejections: []
 
   infra:
