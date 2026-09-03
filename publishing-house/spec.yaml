@@ -126,10 +126,10 @@ spec:
 
     # --- Common fields (both platforms) ---
     aap_version: ""
-    ai_requirement: "none"
-    ai_model_tier: ""
-    ai_model_name: ""
-    ai_justification: ""
+    ai_requirement: "azure_openai"
+    ai_model_tier: "standard"
+    ai_model_name: "gpt-4"
+    ai_justification: "Azure OpenAI GPT-4 endpoint pre-provisioned for OpenShift Lightspeed (module 13)"
     non_ga_products: []
     non_ga_access_plan: ""
     external_services:
