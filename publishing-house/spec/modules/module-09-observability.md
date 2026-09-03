@@ -22,18 +22,18 @@ This is the longest module in the Roadshow at 35–40 minutes, covering the full
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| **Part 1: Metrics** | |
-| Query metrics in OpenShift console (PromQL) | 5 min |
-| Create Alertmanager alert and routing | 5 min |
-| **Part 2: Logging** | |
-| Install Loki Operator and create LokiStack | 5 min |
-| Install Cluster Logging Operator and configure Vector | 5 min |
-| Query logs in Logging console | 5 min |
-| **Part 3: Tracing** | |
-| Install OpenTelemetry Operator and configure collector | 5 min |
-| Install Tempo Operator and view traces | 5–10 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | **Part 1: Metrics** |  |
+| 2 | Query metrics in OpenShift console (PromQL) | 5 min |
+| 3 | Create Alertmanager alert and routing | 5 min |
+| 4 | **Part 2: Logging** |  |
+| 5 | Install Loki Operator and create LokiStack | 5 min |
+| 6 | Install Cluster Logging Operator and configure Vector | 5 min |
+| 7 | Query logs in Logging console | 5 min |
+| 8 | **Part 3: Tracing** |  |
+| 9 | Install OpenTelemetry Operator and configure collector | 5 min |
+| 10 | Install Tempo Operator and view traces | 5–10 min |
 
 ## Key Takeaways
 

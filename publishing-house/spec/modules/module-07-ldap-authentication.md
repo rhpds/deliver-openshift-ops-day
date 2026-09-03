@@ -20,14 +20,14 @@ This module walks through configuring JumpCloud as an external LDAP identity pro
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Configure LDAP IDP in OAuth cluster operator | 4 min |
-| Verify LDAP user login | 2 min |
-| Create group sync configuration | 4 min |
-| Run manual group sync | 2 min |
-| Deploy periodic CronJob for group sync | 3 min |
-| Bind RBAC role to synced group | 3 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Configure LDAP IDP in OAuth cluster operator | 4 min |
+| 2 | Verify LDAP user login | 2 min |
+| 3 | Create group sync configuration | 4 min |
+| 4 | Run manual group sync | 2 min |
+| 5 | Deploy periodic CronJob for group sync | 3 min |
+| 6 | Bind RBAC role to synced group | 3 min |
 
 ## Key Takeaways
 

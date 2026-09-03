@@ -21,14 +21,14 @@ This module presents six intentionally broken microservices that participants mu
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Scenario 1: ImagePullBackOff | 2 min |
-| Scenario 2: CrashLoopBackOff | 2 min |
-| Scenario 3: LimitRange violation | 2 min |
-| Scenario 4: ConfigMap key missing | 2 min |
-| Scenario 5: Service selector mismatch | 2 min |
-| Scenario 6: SCC violation | 3 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Scenario 1: ImagePullBackOff | 2 min |
+| 2 | Scenario 2: CrashLoopBackOff | 2 min |
+| 3 | Scenario 3: LimitRange violation | 2 min |
+| 4 | Scenario 4: ConfigMap key missing | 2 min |
+| 5 | Scenario 5: Service selector mismatch | 2 min |
+| 6 | Scenario 6: SCC violation | 3 min |
 
 ## Key Takeaways
 

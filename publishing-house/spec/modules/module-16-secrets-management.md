@@ -21,14 +21,14 @@ This module covers centralized secrets management on OpenShift using HashiCorp V
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Install Vault via Helm and initialize | 5 min |
-| Write secrets to Vault KV engine | 3 min |
-| Configure Vault Kubernetes auth method | 4 min |
-| Configure Vault Agent Injector sidecar | 5 min |
-| Install External Secrets Operator | 3 min |
-| Create SecretStore and ExternalSecret | 5 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Install Vault via Helm and initialize | 5 min |
+| 2 | Write secrets to Vault KV engine | 3 min |
+| 3 | Configure Vault Kubernetes auth method | 4 min |
+| 4 | Configure Vault Agent Injector sidecar | 5 min |
+| 5 | Install External Secrets Operator | 3 min |
+| 6 | Create SecretStore and ExternalSecret | 5 min |
 
 ## Key Takeaways
 

@@ -20,13 +20,13 @@ This module covers automated workload right-sizing and horizontal scaling using 
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Install VPA operator (if not pre-installed) | 2 min |
-| Create VPA object and observe recommendations | 5 min |
-| Configure HPA | 3 min |
-| Generate load and observe scale-out | 4 min |
-| Observe scale-in after load subsides | 4 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Install VPA operator (if not pre-installed) | 2 min |
+| 2 | Create VPA object and observe recommendations | 5 min |
+| 3 | Configure HPA | 3 min |
+| 4 | Generate load and observe scale-out | 4 min |
+| 5 | Observe scale-in after load subsides | 4 min |
 
 ## Key Takeaways
 

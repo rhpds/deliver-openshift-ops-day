@@ -20,13 +20,13 @@ This module covers multi-cluster fleet management using Red Hat Advanced Cluster
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Create Hosted Control Plane cluster | 8 min |
-| Inspect Fleet Virtualization management | 5 min |
-| Deploy application via ArgoCD ApplicationSet | 7 min |
-| Create GDPR compliance Policy | 5 min |
-| Verify policy compliance status | 5 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Create Hosted Control Plane cluster | 8 min |
+| 2 | Inspect Fleet Virtualization management | 5 min |
+| 3 | Deploy application via ArgoCD ApplicationSet | 7 min |
+| 4 | Create GDPR compliance Policy | 5 min |
+| 5 | Verify policy compliance status | 5 min |
 
 ## Key Takeaways
 

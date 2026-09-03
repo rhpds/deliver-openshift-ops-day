@@ -20,13 +20,13 @@ This module explores Red Hat Developer Hub (RHDH) from an operations perspective
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Browse Software Catalog and inspect entity metadata | 5 min |
-| Inspect live Kubernetes data via Kubernetes plugin | 5 min |
-| Use Software Template to scaffold a component | 8 min |
-| Work through ops troubleshooting ticket | 7 min |
-| View Prometheus metrics in catalog page | 5 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Browse Software Catalog and inspect entity metadata | 5 min |
+| 2 | Inspect live Kubernetes data via Kubernetes plugin | 5 min |
+| 3 | Use Software Template to scaffold a component | 8 min |
+| 4 | Work through ops troubleshooting ticket | 7 min |
+| 5 | View Prometheus metrics in catalog page | 5 min |
 
 ## Key Takeaways
 

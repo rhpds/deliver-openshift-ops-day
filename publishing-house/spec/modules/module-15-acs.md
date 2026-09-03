@@ -20,13 +20,13 @@ This module covers cluster and workload security posture management using Red Ha
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Run vulnerability scan and review CVE report | 4 min |
-| Execute CIS Kubernetes compliance scan | 3 min |
-| Execute PCI-DSS and STIG compliance scans | 3 min |
-| Create apk-kill SecurityPolicy | 3 min |
-| Trigger policy and verify pod termination | 4 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Run vulnerability scan and review CVE report | 4 min |
+| 2 | Execute CIS Kubernetes compliance scan | 3 min |
+| 3 | Execute PCI-DSS and STIG compliance scans | 3 min |
+| 4 | Create apk-kill SecurityPolicy | 3 min |
+| 5 | Trigger policy and verify pod termination | 4 min |
 
 ## Key Takeaways
 

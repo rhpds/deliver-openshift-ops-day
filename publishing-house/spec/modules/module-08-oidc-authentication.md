@@ -20,13 +20,13 @@ This module covers OIDC-based identity federation using the Red Hat build of Key
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Install RHBK operator and create Keycloak instance | 4 min |
-| Configure realm, users, groups, and OIDC client | 4 min |
-| Configure OpenShift OIDC IDP | 3 min |
-| Verify OIDC login | 2 min |
-| Inspect token claims and verify group sync | 4 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Install RHBK operator and create Keycloak instance | 4 min |
+| 2 | Configure realm, users, groups, and OIDC client | 4 min |
+| 3 | Configure OpenShift OIDC IDP | 3 min |
+| 4 | Verify OIDC login | 2 min |
+| 5 | Inspect token claims and verify group sync | 4 min |
 
 ## Key Takeaways
 

@@ -20,13 +20,13 @@ This module introduces GitOps-driven application delivery using Red Hat OpenShif
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Inspect pre-installed ArgoCD instance | 2 min |
-| Create ArgoCD Application CR | 3 min |
-| Observe initial sync | 2 min |
-| Introduce drift by editing a live resource | 2 min |
-| Observe drift detection and self-healing | 3 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Inspect pre-installed ArgoCD instance | 2 min |
+| 2 | Create ArgoCD Application CR | 3 min |
+| 3 | Observe initial sync | 2 min |
+| 4 | Introduce drift by editing a live resource | 2 min |
+| 5 | Observe drift detection and self-healing | 3 min |
 
 ## Key Takeaways
 

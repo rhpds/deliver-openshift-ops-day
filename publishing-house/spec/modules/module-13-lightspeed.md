@@ -20,13 +20,13 @@ This module introduces OpenShift Lightspeed as an AI-assisted operations tool. P
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Inspect OLSConfig and verify Azure OpenAI connection | 3 min |
-| Generate Kubernetes YAML from natural language prompt | 4 min |
-| Apply generated manifest and verify | 3 min |
-| MCP cluster introspection queries | 4 min |
-| Troubleshoot broken pod via Lightspeed conversation | 4 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Inspect OLSConfig and verify Azure OpenAI connection | 3 min |
+| 2 | Generate Kubernetes YAML from natural language prompt | 4 min |
+| 3 | Apply generated manifest and verify | 3 min |
+| 4 | MCP cluster introspection queries | 4 min |
+| 5 | Troubleshoot broken pod via Lightspeed conversation | 4 min |
 
 ## Key Takeaways
 

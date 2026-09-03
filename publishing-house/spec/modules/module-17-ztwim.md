@@ -20,13 +20,13 @@ This module introduces Zero-Trust Workload Identity Manager (ZTWIM), based on th
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Deploy ZTWIM SPIRE server and verify agents | 4 min |
-| Inspect SVIDs issued to workload pods | 3 min |
-| Configure PostgreSQL to require mTLS client certs | 4 min |
-| Configure web service to use SVID for DB auth | 4 min |
-| Observe automatic SVID rotation | 5 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Deploy ZTWIM SPIRE server and verify agents | 4 min |
+| 2 | Inspect SVIDs issued to workload pods | 3 min |
+| 3 | Configure PostgreSQL to require mTLS client certs | 4 min |
+| 4 | Configure web service to use SVID for DB auth | 4 min |
+| 5 | Observe automatic SVID rotation | 5 min |
 
 ## Key Takeaways
 

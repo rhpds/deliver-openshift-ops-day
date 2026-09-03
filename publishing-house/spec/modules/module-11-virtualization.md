@@ -20,13 +20,13 @@ This module demonstrates OpenShift Virtualization for running virtual machines a
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Create RHEL 9 VM from bootable volume | 5 min |
-| Access VM via web console VNC | 3 min |
-| Perform live migration | 5 min |
-| Clone the VM | 5 min |
-| Create snapshot and restore | 5 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Create RHEL 9 VM from bootable volume | 5 min |
+| 2 | Access VM via web console VNC | 3 min |
+| 3 | Perform live migration | 5 min |
+| 4 | Clone the VM | 5 min |
+| 5 | Create snapshot and restore | 5 min |
 
 ## Key Takeaways
 

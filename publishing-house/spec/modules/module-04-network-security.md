@@ -20,13 +20,13 @@ This module explores OVN-Kubernetes network security primitives on OpenShift 4.2
 
 ## Lab Structure
 
-| Section | Time |
-|---------|------|
-| Create namespace isolation NetworkPolicy | 3 min |
-| Apply AdminNetworkPolicy for cluster-wide rules | 3 min |
-| Configure EgressFirewall | 3 min |
-| Assign EgressIP to a namespace | 3 min |
-| Inspect CoreDNS and verify DNS resolution | 2 min |
+| Section | Title | Duration |
+|---------|-------|----------|
+| 1 | Create namespace isolation NetworkPolicy | 3 min |
+| 2 | Apply AdminNetworkPolicy for cluster-wide rules | 3 min |
+| 3 | Configure EgressFirewall | 3 min |
+| 4 | Assign EgressIP to a namespace | 3 min |
+| 5 | Inspect CoreDNS and verify DNS resolution | 2 min |
 
 ## Key Takeaways
 
