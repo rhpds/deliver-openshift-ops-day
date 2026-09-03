@@ -100,13 +100,12 @@ Intermediate
 - **Topology:** Per-student (one cluster per participant)
 - **Cloud provider:** CNV (bare metal + OpenShift Virtualization)
 - **Storage:** ODF — Ceph RBD (block) and NooBaa S3 (object)
-- **AI/MaaS:** Azure OpenAI GPT-4 — pre-provisioned endpoint and Secret for OpenShift Lightspeed (module 13)
+- **AI/MaaS:** Azure OpenAI GPT-5 (frontier) — pre-provisioned endpoint and Secret for OpenShift Lightspeed (module 13)
 - **External services:** registry.redhat.io, registry.access.redhat.com, registry.connect.redhat.com, quay.io, github.com (support scripts and demo apps), ldap.jumpcloud.com:636 (LDAP IDP for module 07)
 - **Non-GA products:** None (all products are GA as of OCP 4.20)
 - **GPU nodes:** None
-- **Automation approach:** TBD — confirmed in infrastructure phase
-- **Sizing (control plane):** TBD — confirmed in infrastructure phase
-- **Peak concurrent environments:** TBD — confirmed in infrastructure phase
+- **Automation approach:** Ansible
+- **Sizing (control plane):** 3 nodes, 16 vCPU, 64GB RAM each (dual-role control-plane + worker)
 
 ## Assessment Strategy
 
