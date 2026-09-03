@@ -1,27 +1,36 @@
-# Deliver the OpenShift Ops Day Roadshow
+# OpenShift Ops Day Roadshow
 
 ## Overview
 
-This lab provides an overview of and delivery guidance for the OpenShift Ops Day workshop followed by hands-on walkthroughs of modules on observability in OpenShift, Zero Trust Workload Identity Manager and secrets management with Vault and External Secrets Operator. Participants learn what the workshop contains and how to provision it for engagements, select content and deliver the modules.
+The OpenShift Ops Day Roadshow is a modular, hands-on lab that gives cluster administrators direct experience operating Red Hat OpenShift Container Platform in a production-representative environment. Participants work through a curated selection of 17 selectable modules covering installation verification, application lifecycle management, networking, identity, observability, security, and advanced topics such as virtualization, multi-cluster management, and AI-assisted operations. Operators choose which modules to include via catalog parameters, enabling the lab to be scoped to a half-day session or expanded to a full day.
 
 ## Target Audience
 
-- **Role:** Solution architects, specialist solution architects, adoption architects, technical account managers, sales specialists
+- **Role:** Cluster administrators, platform engineers, infrastructure architects
 - **Experience level:** Intermediate
-- **What they already know:** Kubernetes concepts such as pods, nodes, secrets and namespaces; and OpenShift concepts such as operators and monitoring
-- **What they don't know:** How the Roadshow and its lab is structured; OpenShift observability; ZTWIM; secrets management with ESO
+- **What they already know:** `oc`/`kubectl` CLI usage, Linux command-line comfort, conceptual understanding of containers and Kubernetes (pods, nodes, namespaces, secrets, operators)
+- **What they don't know:** Operational depth across the full OpenShift feature surface — networking internals, GitOps workflows, identity federation, observability stacks, advanced security posture management, virtualization, and AI-assisted cluster operations
 
 ## Prerequisites
 
-- Familiarity with `oc`/`kubectl` CLI and OpenShift web console
+- Active `oc` session with cluster-admin privileges (provided by the lab environment)
+- Familiarity with OpenShift web console navigation
+- Basic Linux CLI comfort (grep, curl, vi/nano)
 
 ## Learning Objectives
 
-1. Learn about the OpenShift Ops Day Roadshow's structure, content, value propositions, and delivery formats
-2. Deliver a workshop module including supporting materials, lab setup, live walkthroughs and student work time
-3. Deliver a module on observability in OpenShift including metrics with Prometheus, logs with Loki and traces with OpenTelemetry
-4. Deliver a module on Zero Trust Workload Identity Manager for passwordless service authentication
-5. Deliver a module on secrets management with Hashicorp Vault and External Secrets Operator
+1. Verify cluster health by inspecting ClusterOperators, MachineConfigPools, cluster version, and etcd metrics after installation
+2. Deploy, expose, scale, and roll back applications using OpenShift workload management primitives including PodDisruptionBudgets and health probes
+3. Configure HAProxy IngressControllers, Routes, and TLS termination including HSTS and rate limiting
+4. Implement network segmentation using OVN-Kubernetes NetworkPolicy, AdminNetworkPolicy, EgressFirewall, and EgressIP
+5. Troubleshoot common workload failures including ImagePullBackOff, CrashLoopBackOff, LimitRange violations, ConfigMap mismatches, and SCC errors
+6. Deploy and manage GitOps workflows with ArgoCD including drift detection and self-healing application sync
+7. Configure LDAP and OIDC identity providers with automated group synchronization and RBAC on OpenShift
+8. Monitor cluster and application health using Prometheus, Alertmanager, Loki, and distributed tracing with Tempo and OpenTelemetry
+9. Scale workloads automatically using Vertical Pod Autoscaler recommendations and Horizontal Pod Autoscaler under load
+10. Provision, live-migrate, clone, and snapshot virtual machines using OpenShift Virtualization
+11. Secure the cluster using RHACS vulnerability scanning, compliance scans against CIS/PCI-DSS/STIG benchmarks, and runtime Policy-as-Code
+12. Manage secrets centrally with HashiCorp Vault and External Secrets Operator, and establish mTLS workload identity using Zero-Trust Workload Identity Manager
 
 ## Content Type
 
@@ -29,22 +38,49 @@ Lab (hands-on)
 
 ## Products & Technologies
 
-- Red Hat OpenShift Container Platform
-- Red Hat OpenShift Observability - Prometheus, Loki, OpenTelemetry, Tempo
-- Red Hat OpenShift Zero Trust Workload Identity Manager (ZTWIM)
-- Hashicorp Vault
+- Red Hat OpenShift Container Platform 4.20
+- Red Hat OpenShift GitOps (ArgoCD)
+- Red Hat OpenShift Virtualization
+- Red Hat Advanced Cluster Management (RHACM)
+- Red Hat Advanced Cluster Security (RHACS)
+- Red Hat build of Keycloak (RHBK)
+- Red Hat Developer Hub (RHDH)
+- OpenShift Lightspeed
+- Red Hat OpenShift Data Foundation (ODF) — NooBaa (S3) and Ceph RBD
+- OpenShift Logging (Loki Operator, Cluster Logging Operator, Vector)
+- Red Hat build of OpenTelemetry
+- Tempo Operator
+- Vertical Pod Autoscaler (VPA)
+- OpenShift Compliance Operator
+- Zero-Trust Workload Identity Manager (ZTWIM)
+- HashiCorp Vault
 - External Secrets Operator (ESO)
 
 ## Module Map
 
 | Module | Title | Duration |
 |--------|-------|----------|
-| 1 | Position and deliver the workshop | 25 min |
-| 2 | Observability in OpenShift | 30 min |
-| 3 | Zero Trust Workload Identity Manager | 30 min |
-| 4 | Secrets management with Vault and External Secrets Operator | 30 min |
-| — | **Total hands-on** | **90 minutes** |
-| — | **Total lab** | **2 hours** |
+| Setup (always shown) | Setup & Overview | 15–20 min |
+| 01 | Installation & Verification | 10 min |
+| 02 | Application Management | 15–20 min |
+| 03 | Ingress & Load Balancing | 25 min |
+| 04 | Network Security | 10–15 min |
+| 05 | Debugging & Troubleshooting | 10–15 min |
+| 06 | GitOps | 10–15 min |
+| 07 | Identity - LDAP | 15–20 min |
+| 08 | Identity - OIDC | 15–20 min |
+| 09 | Observability & Logging | 35–40 min |
+| 10 | Performance Tuning | 15–20 min |
+| 11 | Virtualization | 20–25 min |
+| 12 | Developer Hub | 25–30 min |
+| 13 | Lightspeed | 15–20 min |
+| 14 | ACM Multi-Cluster Management | 30 min |
+| 15 | Advanced Cluster Security | 15–20 min |
+| 16 | Secrets Management | 25 min |
+| 17 | Zero-Trust Workload Identity Manager | 20 min |
+| Conclusion (always shown) | Wrap Up | ~5 min |
+
+The lab is modular — operators select a subset of modules 01–17 via catalog parameters (`module_enable_*`). A typical delivery covers 6–10 modules.
 
 ## Difficulty Level
 
@@ -52,21 +88,26 @@ Intermediate
 
 ## Environment
 
-**Learner view:** Participants access content and cluster via Showroom interface. An OpenShift cluster with full monitoring stack configured (Prometheus, Thanos, Loki, Tempo, OpenTelemetry), ZTWIM ready to deploy, and Hashicorp Vault and External Secrets Operator ready to deploy.
+**Learner view:** Participants access a dedicated OpenShift cluster via the Showroom interface. The cluster starts in a near-production state: monitoring stack (Prometheus, Alertmanager, Thanos), OVN-Kubernetes networking, ODF storage (Ceph RBD + NooBaa S3), OpenShift Virtualization, RHACM, RHACS, RHDH, and OpenShift Lightspeed are pre-installed and pre-configured. A JumpCloud LDAP service and an Azure OpenAI GPT-4 endpoint (pre-configured Secret) are available from the start. Students install RHBK, Loki, Cluster Logging, OpenTelemetry, Tempo, VPA, HashiCorp Vault (via Helm), and External Secrets Operator during their selected modules.
 
-**Automation needed:** Yes
-
-- OpenShift cluster with monitoring stack ready - Loki, Tempo, OpenTelemetry, etc.
-- OpenShift cluster with ZTWIM prerequisites
-- OpenShift cluster with secret management prerequisites
+**Automation needed:** Yes — environment setup automation provisions and configures the pre-installed operators, seeds demo applications, and injects per-student credentials and endpoints.
 
 ## Infrastructure Requirements
 
-- **Cloud provider:** CNV
-- **Cluster type:** Multinode — 3 control plane (16 vCPU, 64GB RAM), no workers
+- **Platform:** OCP
+- **Cluster type:** 3-node compact multinode — control-plane nodes carry workloads (dual-role); worker MachineSet scaled to 0 at start
 - **OCP version:** 4.20
-- **Topology:** One cluster per student
-- **Automation approach:** Ansible
-- **AI/MaaS:** None
-- **External services:** registry.redhat.io, registry.connect.redhat.com
-- **Non-GA products:** None (all products are GA)
+- **Topology:** Per-student (one cluster per participant)
+- **Cloud provider:** CNV (bare metal + OpenShift Virtualization)
+- **Storage:** ODF — Ceph RBD (block) and NooBaa S3 (object)
+- **AI/MaaS:** Azure OpenAI GPT-4 — pre-provisioned endpoint and Secret for OpenShift Lightspeed (module 13)
+- **External services:** registry.redhat.io, registry.access.redhat.com, registry.connect.redhat.com, quay.io, github.com (support scripts and demo apps), ldap.jumpcloud.com:636 (LDAP IDP for module 07)
+- **Non-GA products:** None (all products are GA as of OCP 4.20)
+- **GPU nodes:** None
+- **Automation approach:** TBD — confirmed in infrastructure phase
+- **Sizing (control plane):** TBD — confirmed in infrastructure phase
+- **Peak concurrent environments:** TBD — confirmed in infrastructure phase
+
+## Assessment Strategy
+
+This is a classic Showroom lab with trust-based assessment. There are no automated solve/validate playbooks — participants complete exercises by following the lab guide and verify their own work using the OpenShift web console and `oc` CLI. Instructors may use the Wrap Up section's discussion questions for informal assessment.

@@ -12,37 +12,96 @@ project:
   deployment_mode: "rhdp_published"
   initiative_key: "rh1_2027"
   showroom_type: "classic"
-  intake_type: "new"
+  intake_type: "migration"
   automation_type: "ansible"
-  description: "Overview and delivery guidance for the OpenShift Ops Day roadshow; and a walkthrough of the Observability, Zero Trust Workload Identity Manager and Secrets Management modules."
+  description: "Modular hands-on lab covering OpenShift cluster operations across 17 selectable topics including networking, identity, observability, security, virtualization, multi-cluster management, and AI-assisted operations."
   # content_reviewer_email and infra_reviewer_email are assigned by the RHDP team — not set by the author
   jira_ticket: "RHDPCD-1196"
   workflow_id: "5498fbed-df06-45ee-8e4c-21142a5d5540"
 
 spec:
-  title: "Deliver the OpenShift Ops Day Roadshow"
+  title: "OpenShift Ops Day Roadshow"
   learning_objectives:
-    - "Learn about the OpenShift Ops Day Roadshow's structure, content, value propositions, and delivery formats"
-    - "Deliver a workshop module including supporting materials, lab setup, live walkthroughs and student work time"
-    - "Deliver a module on observability in OpenShift including metrics with Prometheus, logs with Loki and traces with OpenTelemetry"
-    - "Deliver a module on Zero Trust Workload Identity Manager for passwordless service authentication"
-    - "Deliver a module on secrets management with Hashicorp Vault and External Secrets Operator"
+    - "Verify cluster health by inspecting ClusterOperators, MachineConfigPools, cluster version, and etcd metrics after installation"
+    - "Deploy, expose, scale, and roll back applications using OpenShift workload management primitives including PodDisruptionBudgets and health probes"
+    - "Configure HAProxy IngressControllers, Routes, and TLS termination including HSTS and rate limiting"
+    - "Implement network segmentation using OVN-Kubernetes NetworkPolicy, AdminNetworkPolicy, EgressFirewall, and EgressIP"
+    - "Troubleshoot common workload failures including ImagePullBackOff, CrashLoopBackOff, LimitRange violations, ConfigMap mismatches, and SCC errors"
+    - "Deploy and manage GitOps workflows with ArgoCD including drift detection and self-healing application sync"
+    - "Configure LDAP and OIDC identity providers with automated group synchronization and RBAC on OpenShift"
+    - "Monitor cluster and application health using Prometheus, Alertmanager, Loki, and distributed tracing with Tempo and OpenTelemetry"
+    - "Scale workloads automatically using Vertical Pod Autoscaler recommendations and Horizontal Pod Autoscaler under load"
+    - "Provision, live-migrate, clone, and snapshot virtual machines using OpenShift Virtualization"
+    - "Secure the cluster using RHACS vulnerability scanning, compliance scans against CIS/PCI-DSS/STIG benchmarks, and runtime Policy-as-Code"
+    - "Manage secrets centrally with HashiCorp Vault and External Secrets Operator, and establish mTLS workload identity using Zero-Trust Workload Identity Manager"
   modules:
     - id: module-01
-      title: "Position and deliver the workshop"
-      duration_min: 25
+      title: "Installation & Verification"
+      duration_min: 10
       status: not_started
     - id: module-02
-      title: "Observability in OpenShift"
-      duration_min: 30
+      title: "Application Management"
+      duration_min: 17
       status: not_started
     - id: module-03
-      title: "Zero Trust Workload Identity Manager"
-      duration_min: 30
+      title: "Ingress & Load Balancing"
+      duration_min: 25
       status: not_started
     - id: module-04
-      title: "Secrets management with Vault and External Secrets Operator"
+      title: "Network Security"
+      duration_min: 12
+      status: not_started
+    - id: module-05
+      title: "Debugging & Troubleshooting"
+      duration_min: 12
+      status: not_started
+    - id: module-06
+      title: "GitOps"
+      duration_min: 12
+      status: not_started
+    - id: module-07
+      title: "Identity - LDAP"
+      duration_min: 17
+      status: not_started
+    - id: module-08
+      title: "Identity - OIDC"
+      duration_min: 17
+      status: not_started
+    - id: module-09
+      title: "Observability & Logging"
+      duration_min: 37
+      status: not_started
+    - id: module-10
+      title: "Performance Tuning"
+      duration_min: 17
+      status: not_started
+    - id: module-11
+      title: "Virtualization"
+      duration_min: 22
+      status: not_started
+    - id: module-12
+      title: "Developer Hub"
+      duration_min: 27
+      status: not_started
+    - id: module-13
+      title: "Lightspeed"
+      duration_min: 17
+      status: not_started
+    - id: module-14
+      title: "ACM Multi-Cluster Management"
       duration_min: 30
+      status: not_started
+    - id: module-15
+      title: "Advanced Cluster Security"
+      duration_min: 17
+      status: not_started
+    - id: module-16
+      title: "Secrets Management"
+      duration_min: 25
+      status: not_started
+    - id: module-17
+      title: "Zero-Trust Workload Identity Manager"
+      duration_min: 20
       status: not_started
   environment:
     platform: "ocp"
@@ -67,18 +126,22 @@ spec:
 
     # --- Common fields (both platforms) ---
     aap_version: ""
-    ai_requirement: "none"
-    ai_model_tier: ""
-    ai_model_name: ""
-    ai_justification: ""
+    ai_requirement: "azure_openai"
+    ai_model_tier: "standard"
+    ai_model_name: "gpt-4"
+    ai_justification: "Azure OpenAI GPT-4 endpoint pre-provisioned for OpenShift Lightspeed (module 13)"
     non_ga_products: []
     non_ga_access_plan: ""
     external_services:
       - "registry.redhat.io"
+      - "registry.access.redhat.com"
       - "registry.connect.redhat.com"
+      - "quay.io"
+      - "github.com"
+      - "ldap.jumpcloud.com"
     gpu_nodes: 0
     gpu_type: ""
-  duration_hours: 2
+  duration_hours: 6
   audience: "intermediate"   # beginner | intermediate | advanced
 
 development:
@@ -103,25 +166,51 @@ approval_checklist:
 
   content:
     prerequisites_verifiable: false
-    assessment_strategy: ""
-    catalog_gap: "The existing Roadshow provides participant-facing hands-on content but nothing in the catalog addresses the train-the-trainer layer — how field teams should position, schedule, and deliver the Roadshow to customers."
-    design_overview: "Prepares Red Hat field teams to deliver the OpenShift Ops Day Roadshow by covering the workshop structure, positioning, and delivery techniques, followed by hands-on exercises in observability, Zero Trust Workload Identity Manager, and secrets management."
+    assessment_strategy: "Classic Showroom trust-based assessment — no automated solve/validate playbooks. Participants self-verify via the OpenShift web console and oc CLI."
+    catalog_gap: "The existing Roadshow provides participant-facing hands-on content for cluster administrators across 17 operational topics. This migration re-scopes the lab from a train-the-trainer framing to the actual participant-facing Roadshow experience."
+    design_overview: "Modular hands-on lab for cluster administrators to operate OpenShift across 17 selectable topics spanning installation verification, application lifecycle, networking, identity federation, observability, security, virtualization, multi-cluster management, and AI-assisted operations on a per-student 3-node compact cluster running OCP 4.20."
     module_summaries:
-      - title: "Position and Deliver the Workshop"
-        overview: "Introduction to the Roadshow, its value propositions and delivery formats, and end-to-end guidance on delivering the workshop to customers."
-      - title: "Observability in OpenShift"
-        overview: "Hands-on walkthrough of metrics with Prometheus, logs with Vector and Loki, and distributed tracing with OpenTelemetry and Tempo."
-      - title: "Zero Trust Workload Identity Manager"
-        overview: "Hands-on walkthrough of ZTWIM for passwordless service-to-service authentication on OpenShift."
-      - title: "Secrets Management with Vault and ESO"
-        overview: "Hands-on walkthrough of Hashicorp Vault and External Secrets Operator for centralized secrets management."
+      - title: "Installation & Verification"
+        overview: "Post-install health checks using oc commands to inspect ClusterOperators, cluster version, MachineConfigPools, networking, storage, and etcd. Builds confidence that the cluster is ready for production workloads."
+      - title: "Application Management"
+        overview: "Full application lifecycle on OpenShift: deploy a workload, expose it via a Service and Route, scale replicas, observe self-healing, configure liveness/readiness probes, configure PodDisruptionBudgets, and perform a rollback."
+      - title: "Ingress & Load Balancing"
+        overview: "Deep-dive into the HAProxy IngressController, Route creation, TLS termination modes, HSTS header injection, and rate limiting policies for ingress traffic control."
+      - title: "Network Security"
+        overview: "Practical OVN-Kubernetes network security: create NetworkPolicy and AdminNetworkPolicy objects, configure EgressFirewall and EgressIP, and inspect CoreDNS to understand cluster DNS resolution."
+      - title: "Debugging & Troubleshooting"
+        overview: "Diagnose and fix six intentionally broken microservices covering ImagePullBackOff, CrashLoopBackOff, LimitRange quota exhaustion, missing ConfigMap keys, service selector mismatches, and SCC violations."
+      - title: "GitOps"
+        overview: "Deploy a GitOps workflow with an ArgoCD Application CR, introduce configuration drift, observe ArgoCD's detection and self-healing behavior, and verify the cluster state converges."
+      - title: "Identity - LDAP"
+        overview: "Configure JumpCloud as an LDAP identity provider on OpenShift, set up group synchronization with a CronJob, and assign RBAC roles to synced groups."
+      - title: "Identity - OIDC"
+        overview: "Install the Red Hat build of Keycloak operator, configure an OIDC identity provider on OpenShift, and implement automatic group sync driven by token claims."
+      - title: "Observability & Logging"
+        overview: "Three-part observability deep-dive: metrics with Prometheus and Alertmanager, log aggregation with Loki and Vector via the Cluster Logging Operator backed by ODF/NooBaa S3, and distributed tracing with Tempo and OpenTelemetry. The longest module at 35–40 minutes."
+      - title: "Performance Tuning"
+        overview: "Apply Vertical Pod Autoscaler to receive right-sizing recommendations, then configure a Horizontal Pod Autoscaler and generate load to observe automatic scale-out and scale-in behavior."
+      - title: "Virtualization"
+        overview: "Create a RHEL 9 virtual machine using OpenShift Virtualization, perform live migration between nodes, clone the VM, and create and restore a snapshot."
+      - title: "Developer Hub"
+        overview: "Explore Red Hat Developer Hub: browse the Software Catalog with live Kubernetes health data, use a Software Template to scaffold a component, work through an ops troubleshooting ticket, and view Prometheus metrics surfaced in RHDH."
+      - title: "Lightspeed"
+        overview: "Configure OLSConfig for the cluster's Azure OpenAI backend, use natural language prompts to generate Kubernetes YAML, and leverage the MCP cluster introspection tool to troubleshoot a broken pod."
+      - title: "ACM Multi-Cluster Management"
+        overview: "Use RHACM to create a Hosted Control Plane cluster, manage Fleet Virtualization, deploy an application via an ArgoCD ApplicationSet, and enforce a GDPR compliance policy across the fleet."
+      - title: "Advanced Cluster Security"
+        overview: "Run RHACS vulnerability scans, execute compliance scans against CIS, PCI-DSS, and STIG benchmarks, and create a SecurityPolicy that kills a pod at runtime when it runs apk (Policy-as-Code enforcement)."
+      - title: "Secrets Management"
+        overview: "Install HashiCorp Vault via Helm, configure the Vault Agent Injector sidecar to deliver secrets to application pods, then install External Secrets Operator and create an ExternalSecret that syncs from Vault."
+      - title: "Zero-Trust Workload Identity Manager"
+        overview: "Deploy ZTWIM (SPIRE), issue X.509 SVIDs to workloads, configure mTLS between a service and PostgreSQL using the SVIDs, and observe automatic certificate rotation without any secret material in the pod spec."
     rcars_overlap_pct: 87
     rcars_top_matches:
       - title: "OpenShift Ops Day Roadshow"
         ci_name: "published.openshift-days-ops-track.prod"
         url: "https://catalog.demo.redhat.com/catalog?item=published.openshift-days-ops-track.prod"
         relevance_score: 87
-        why_it_fits: "This is the actual OpenShift Ops Day Roadshow workshop content — the same modules this lab teaches people to deliver."
+        why_it_fits: "This is the actual OpenShift Ops Day Roadshow workshop content — the same lab this project is migrating into the Publishing House."
     rejections: []
 
   infra:
