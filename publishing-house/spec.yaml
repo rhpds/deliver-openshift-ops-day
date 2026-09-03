@@ -126,10 +126,10 @@ spec:
 
     # --- Common fields (both platforms) ---
     aap_version: ""
-    ai_requirement: "maas"
-    ai_model_tier: "frontier"
-    ai_model_name: "gpt-4"
-    ai_justification: "OpenShift Lightspeed (module 13) requires an Azure OpenAI GPT-4 endpoint pre-provisioned as a cluster Secret. Open-source models are not supported by the OLS operator in this configuration."
+    ai_requirement: "none"
+    ai_model_tier: ""
+    ai_model_name: ""
+    ai_justification: ""
     non_ga_products: []
     non_ga_access_plan: ""
     external_services:
