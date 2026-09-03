@@ -138,7 +138,7 @@ spec:
       - "registry.connect.redhat.com"
       - "quay.io"
       - "github.com"
-      - "ldaps://ldap.jumpcloud.com:636"
+      - "JumpCloud LDAP"
     gpu_nodes: 0
     gpu_type: ""
   duration_hours: 6
