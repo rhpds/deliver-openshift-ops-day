@@ -1,9 +1,22 @@
-# Deliver the OpenShift Ops Day Roadshow
+# OpenShift Ops Day Roadshow
 
 Welcome to the project spec. Use the navigation to browse the design and module outlines.
 
 - [Design Spec](design.md)
-- [Module 1 - Position and Deliver the Workshop](modules/module-01-position-and-deliver.md)
-- [Module 2 - Observability in OpenShift](modules/module-02-observability.md)
-- [Module 3 - Zero Trust Workload Identity Manager](modules/module-03-ztwim.md)
-- [Module 4 - Secrets Management with Vault and ESO](modules/module-04-secrets-management.md)
+- [Module 1 - Installation](modules/module-01-installation.md)
+- [Module 2 - App Management](modules/module-02-app-management.md)
+- [Module 3 - Ingress Load Balancing](modules/module-03-ingress-load-balancing.md)
+- [Module 4 - Network Security](modules/module-04-network-security.md)
+- [Module 5 - Debugging Troubleshooting](modules/module-05-debugging-troubleshooting.md)
+- [Module 6 - Gitops](modules/module-06-gitops.md)
+- [Module 7 - Ldap Authentication](modules/module-07-ldap-authentication.md)
+- [Module 8 - Oidc Authentication](modules/module-08-oidc-authentication.md)
+- [Module 9 - Observability](modules/module-09-observability.md)
+- [Module 10 - Performance Tuning](modules/module-10-performance-tuning.md)
+- [Module 11 - Virtualization](modules/module-11-virtualization.md)
+- [Module 12 - Developer Hub](modules/module-12-developer-hub.md)
+- [Module 13 - Lightspeed](modules/module-13-lightspeed.md)
+- [Module 14 - Acm](modules/module-14-acm.md)
+- [Module 15 - Acs](modules/module-15-acs.md)
+- [Module 16 - Secrets Management](modules/module-16-secrets-management.md)
+- [Module 17 - Ztwim](modules/module-17-ztwim.md)
