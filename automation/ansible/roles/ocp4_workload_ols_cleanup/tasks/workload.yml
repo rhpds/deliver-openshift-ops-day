@@ -1,6 +1,51 @@
 ---
-# Temporarily commented out for testing - leaving OLSConfig in place so OLS
-# is pre-configured at provisioning time rather than students creating it manually.
+# OLS is pre-configured at provisioning time. This role waits for
+# lightspeed-app-server to be Ready before provisioning completes,
+# ensuring students never log in during the startup window where the
+# lightspeed-console-plugin is registered but the backend is still coming up.
+
+- name: Check whether OLSConfig exists
+  kubernetes.core.k8s_info:
+    api_version: ols.openshift.io/v1alpha1
+    kind: OLSConfig
+    name: cluster
+    namespace: openshift-lightspeed
+  register: r_olsconfig_check
+  ignore_errors: true
+
+- name: Wait for lightspeed-app-server to be Ready
+  when: r_olsconfig_check.resources | default([]) | length > 0
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: lightspeed-app-server
+    namespace: openshift-lightspeed
+  register: r_ols_server
+  retries: 60
+  delay: 30
+  until: >-
+    r_ols_server.resources | length > 0 and
+    (r_ols_server.resources[0].status.readyReplicas | default(0)) > 0
+  ignore_errors: true
+
+- name: OLS readiness status
+  debug:
+    msg: >-
+      {{
+        'OLSConfig not found - OLS not installed, skipping wait'
+        if r_olsconfig_check.resources | default([]) | length == 0
+        else 'lightspeed-app-server ready - students can use OLS on first login'
+        if (r_ols_server is defined and
+            r_ols_server.resources | default([]) | length > 0 and
+            (r_ols_server.resources[0].status.readyReplicas | default(0)) > 0)
+        else 'WARNING: lightspeed-app-server did not become Ready within 30 minutes'
+      }}
+
+# ==============================================================================
+# Original cleanup tasks — commented out while OLS is pre-configured.
+# Uncomment to restore the old behaviour (delete OLSConfig so students create
+# it themselves in module 13).
+# ==============================================================================
 
 # - name: Check for OLSConfig created by upstream role
 #   kubernetes.core.k8s_info:
@@ -69,7 +114,3 @@
 #     msg: >-
 #       OLSConfig {{ 'deleted - operator installed, secrets intact, students will create config manually'
 #       if r_olsconfig_delete is changed else 'not found - nothing to clean up' }}.
-
-- name: OLS cleanup skipped
-  debug:
-    msg: "OLS cleanup skipped - OLSConfig left in place for testing pre-configured OLS."
