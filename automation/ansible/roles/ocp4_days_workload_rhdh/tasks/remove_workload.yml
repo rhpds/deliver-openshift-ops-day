@@ -4,7 +4,7 @@
 - name: Remove Backstage CR
   kubernetes.core.k8s:
     state: absent
-    api_version: rhdh.redhat.com/v1alpha3
+    api_version: rhdh.redhat.com/v1alpha4
     kind: Backstage
     name: "{{ ocp4_days_workload_rhdh_instance_name }}"
     namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"

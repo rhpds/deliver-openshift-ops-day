@@ -125,7 +125,7 @@
   kubernetes.core.k8s:
     state: present
     definition:
-      apiVersion: rhdh.redhat.com/v1alpha3
+      apiVersion: rhdh.redhat.com/v1alpha4
       kind: Backstage
       metadata:
         name: "{{ ocp4_days_workload_rhdh_instance_name }}"
@@ -714,7 +714,7 @@
     kubernetes.core.k8s:
       state: present
       definition:
-        apiVersion: rhdh.redhat.com/v1alpha3
+        apiVersion: rhdh.redhat.com/v1alpha4
         kind: Backstage
         metadata:
           name: "{{ ocp4_days_workload_rhdh_instance_name }}"
