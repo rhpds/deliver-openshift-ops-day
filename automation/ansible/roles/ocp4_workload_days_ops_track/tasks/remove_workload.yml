@@ -16,21 +16,6 @@
       {{ r_console_virt_plugin_for_removal.resources | default([]) | length > 0 and
          (r_console_virt_plugin_for_removal.resources[0].metadata.labels | default({})).get('app.kubernetes.io/managed-by', '') == 'ops-track-workshop' }}
 
-- name: Remove workload-owned KubeVirt Console translation stand-in
-  kubernetes.core.k8s:
-    state: absent
-    definition: "{{ lookup('template', 'console_virt_i18n_standin.yml.j2') | from_yaml_all | list }}"
-  when: _workshop_console_virt_standin_owned | bool
-
-- name: Remove serving certificate generated for KubeVirt Console translation stand-in
-  kubernetes.core.k8s:
-    state: absent
-    api_version: v1
-    kind: Secret
-    name: console-virt-perspective-plugin-cert
-    namespace: openshift-cnv
-  when: _workshop_console_virt_standin_owned | bool
-
 - name: Read enabled Console plugins before disabling the KubeVirt translation stand-in
   kubernetes.core.k8s_info:
     api_version: operator.openshift.io/v1
@@ -48,14 +33,30 @@
       - op: replace
         path: /spec/plugins
         value: "{{ r_console_operator_plugins_for_removal.resources[0].spec.plugins | default([]) | reject('equalto', 'console-virt-perspective-plugin') | list }}"
+  register: r_console_virt_standin_disable
   when:
     - _workshop_console_virt_standin_owned | bool
     - "'console-virt-perspective-plugin' in (r_console_operator_plugins_for_removal.resources[0].spec.plugins | default([]))"
 
-- name: Wait for Console rollout after removing KubeVirt translation stand-in
+- name: Wait for Console rollout after disabling the KubeVirt translation stand-in
   ansible.builtin.shell: |
     oc rollout status deployment/console -n openshift-console --timeout=180s
   changed_when: false
+  when: r_console_virt_standin_disable is changed
+
+- name: Remove workload-owned KubeVirt Console translation stand-in
+  kubernetes.core.k8s:
+    state: absent
+    definition: "{{ lookup('template', 'console_virt_i18n_standin.yml.j2') | from_yaml_all | list }}"
+  when: _workshop_console_virt_standin_owned | bool
+
+- name: Remove serving certificate generated for KubeVirt Console translation stand-in
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    name: console-virt-perspective-plugin-cert
+    namespace: openshift-cnv
   when: _workshop_console_virt_standin_owned | bool
 
 - name: Check if clean-admin.yml exists
