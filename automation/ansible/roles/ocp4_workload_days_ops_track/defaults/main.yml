@@ -2,6 +2,19 @@
 ocp_username: admin
 silent: false
 
+# Some KubeVirt Console installations request the Fleet Virtualization label
+# from a plugin namespace whose ConsolePlugin resource is missing. Install a
+# tiny locale endpoint in that case, and preload its locale before the label
+# is rendered.
+workshop_console_virt_i18n_standin: true
+workshop_console_virt_i18n_standin_image: registry.access.redhat.com/ubi9/nginx-124:latest
+
+# Optional dedicated Console route for HTTP/2. Requires a DNS name resolving
+# to ingress and a non-wildcard TLS certificate in openshift-config.
+workshop_console_http2_enable: false
+workshop_console_http2_hostname: ""
+workshop_console_http2_tls_secret_name: ""
+
 # Main workshop setup role — gathers cluster metadata, grants cluster-admin,
 # configures Showroom, reduces NooBaa/BackingStore resources, and deploys
 # optional components (LVMS, OLS demo pod).

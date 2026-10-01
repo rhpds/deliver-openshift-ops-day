@@ -1,0 +1,12 @@
+diff --git a/ui/apps/platform/src/providers/MetadataProvider.tsx b/ui/apps/platform/src/providers/MetadataProvider.tsx
+--- a/ui/apps/platform/src/providers/MetadataProvider.tsx
++++ b/ui/apps/platform/src/providers/MetadataProvider.tsx
+@@ -59,2 +59,6 @@
+-    // Poll metadata every 10 seconds (or 1 second if we don't have metadata yet)
+-    useInterval(refetch, data?.version ? 10000 : 1000);
++    // A failed metadata request stops the timer, including the 401/403 seen
++    // while the login screen is open. A fresh app load after authentication
++    // starts metadata loading again. Also avoid overlapping requests.
++    // If metadata is simply absent without an error, retry at the existing
++    // one-second interval so version detection behavior is preserved.
++    useInterval(refetch, error || isLoading ? null : data?.version ? 10000 : 1000);

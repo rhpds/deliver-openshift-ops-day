@@ -5,6 +5,9 @@
 *ocp4_workload_rhacs_enable_route_certs*: true::
 To avoid browser cert nag screens, this adds the Stackrox CA cert to the Route for Central.
 
+*ocp4_workload_rhacs_central_image_override*: empty by default::
+Optionally points the Central deployment at a custom, version-matched image. The role applies this using a Central Operator overlay; confirm the installed Central CRD supports overlays. The image must already be available to the cluster. A draft source patch for the 4.11.4 login-screen metadata polling issue is in `files/patches/metadata-provider-pause-on-error-4.11.4.patch`. It pauses the timer after a metadata request error (including the observed 403) and avoids scheduling another request while one is in flight. The expected recovery is a fresh authenticated app load; confirm the login flow reloads the app before adopting the patch. Because it pauses on any query error, a transient error also requires a page reload to resume polling. Apply it to a matching RHACS source tree and build/publish a private image before setting this variable. The patch and image build have not been validated here, and the role does not build or publish the image. Remove the override when the fix is included in an RHACS release.
+
 == Role overview
 
 * This role installs the following onto the cluster:

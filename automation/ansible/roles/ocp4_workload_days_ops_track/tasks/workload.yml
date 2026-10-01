@@ -139,6 +139,10 @@
     master_url: "https://{{ master_url_r.resources[0].spec.host | trim }}"
   when: master_url is not defined or master_url == ''
 
+- name: Configure optional dedicated Console route for HTTP/2
+  ansible.builtin.include_tasks: console_http2.yml
+  when: workshop_console_http2_enable | default(false) | bool
+
 - name: Get the default route subdomain of the cluster
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
@@ -1826,6 +1830,112 @@
     - name: Wait for console to finish rolling out after UIPlugin pre-creation
       shell: |
         oc rollout status deployment/console -n openshift-console --timeout=180s
+
+# ==============================================================================
+# KubeVirt Console translation fallback
+# When KubeVirt is present but the console-virt-perspective-plugin resource is
+# absent, serve the expected locale from a lightweight in-cluster HTTPS
+# service. Preload its locale to avoid a lazy-load race when Console renders
+# the Fleet Virtualization label. Do not replace an existing plugin resource.
+# ==============================================================================
+
+- name: Check for KubeVirt namespace before installing the Console translation stand-in
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Namespace
+    name: openshift-cnv
+  register: r_console_virt_namespace
+  when:
+    - module_enable_virt | default(true) | bool
+    - workshop_console_virt_i18n_standin | bool
+
+- name: Check whether the real KubeVirt ConsolePlugin is already present
+  kubernetes.core.k8s_info:
+    api_version: console.openshift.io/v1
+    kind: ConsolePlugin
+    name: console-virt-perspective-plugin
+  register: r_console_virt_plugin
+  when:
+    - module_enable_virt | default(true) | bool
+    - workshop_console_virt_i18n_standin | bool
+    - r_console_virt_namespace.resources | default([]) | length > 0
+
+- name: Install KubeVirt Console translation stand-in when the real plugin is absent
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'console_virt_i18n_standin.yml.j2') | from_yaml_all | list }}"
+  register: r_console_virt_standin_apply
+  when:
+    - module_enable_virt | default(true) | bool
+    - workshop_console_virt_i18n_standin | bool
+    - r_console_virt_namespace.resources | default([]) | length > 0
+    - r_console_virt_plugin.resources | default([]) | length == 0
+
+- name: Wait for KubeVirt Console translation stand-in to become ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: openshift-cnv
+    name: console-virt-perspective-plugin
+  register: r_console_virt_standin_deployment
+  until:
+    - r_console_virt_standin_deployment.resources | length > 0
+    - r_console_virt_standin_deployment.resources[0].status.availableReplicas | default(0) >= r_console_virt_standin_deployment.resources[0].spec.replicas
+  retries: 30
+  delay: 10
+  when: r_console_virt_standin_apply is changed
+
+- name: Read enabled Console plugins before enabling the KubeVirt translation stand-in
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1
+    kind: Console
+    name: cluster
+  register: r_console_operator_plugins
+  when:
+    - module_enable_virt | default(true) | bool
+    - workshop_console_virt_i18n_standin | bool
+    - r_console_virt_namespace.resources | default([]) | length > 0
+    - r_console_virt_plugin.resources | default([]) | length == 0
+
+- name: Enable the KubeVirt Console translation stand-in plugin when a plugins list already exists
+  kubernetes.core.k8s_json_patch:
+    api_version: operator.openshift.io/v1
+    kind: Console
+    name: cluster
+    patch:
+      - op: add
+        path: /spec/plugins/-
+        value: console-virt-perspective-plugin
+  when:
+    - module_enable_virt | default(true) | bool
+    - workshop_console_virt_i18n_standin | bool
+    - r_console_virt_namespace.resources | default([]) | length > 0
+    - r_console_virt_plugin.resources | default([]) | length == 0
+    - r_console_operator_plugins.resources[0].spec.plugins | default([]) | length > 0
+    - "'console-virt-perspective-plugin' not in (r_console_operator_plugins.resources[0].spec.plugins | default([]))"
+
+- name: Enable the KubeVirt Console translation stand-in plugin when no plugins list exists yet
+  kubernetes.core.k8s_json_patch:
+    api_version: operator.openshift.io/v1
+    kind: Console
+    name: cluster
+    patch:
+      - op: add
+        path: /spec/plugins
+        value:
+          - console-virt-perspective-plugin
+  when:
+    - module_enable_virt | default(true) | bool
+    - workshop_console_virt_i18n_standin | bool
+    - r_console_virt_namespace.resources | default([]) | length > 0
+    - r_console_virt_plugin.resources | default([]) | length == 0
+    - r_console_operator_plugins.resources[0].spec.plugins | default([]) | length == 0
+
+- name: Wait for Console rollout after installing KubeVirt translation stand-in
+  ansible.builtin.shell: |
+    oc rollout status deployment/console -n openshift-console --timeout=180s
+  changed_when: false
+  when: r_console_virt_standin_apply is changed
 
 # Leave this as the last task in the playbook.
 
