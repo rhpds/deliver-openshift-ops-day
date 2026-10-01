@@ -48,6 +48,15 @@ spec:
           storageClassName: {{ ocp4_workload_rhacs_central_storage_class }}
 {% endif %}
 {% endif %}
+{% if ocp4_workload_rhacs_central_image_override | default('') | length > 0 %}
+  overlays:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: central
+      patches:
+        - path: spec.template.spec.containers[name:central].image
+          value: {{ ocp4_workload_rhacs_central_image_override | to_json }}
+{% endif %}
   egress:
     connectivityPolicy: Online
   scanner:
