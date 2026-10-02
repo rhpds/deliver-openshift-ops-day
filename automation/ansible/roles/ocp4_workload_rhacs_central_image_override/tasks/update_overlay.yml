@@ -1,0 +1,87 @@
+---
+- name: Read the RHACS Central custom resource
+  kubernetes.core.k8s_info:
+    api_version: platform.stackrox.io/v1alpha1
+    kind: Central
+    namespace: "{{ ocp4_workload_rhacs_central_namespace }}"
+  register: r_rhacs_central_image_override
+
+- name: Ensure exactly one Central exists when applying an image override
+  ansible.builtin.assert:
+    that:
+      - r_rhacs_central_image_override.resources | length == 1
+    fail_msg: >-
+      Expected one Central in {{ ocp4_workload_rhacs_central_namespace }} before
+      applying ocp4_workload_rhacs_central_image_override.
+  when: _rhacs_image_override_value | length > 0
+
+- name: Gather existing Central overlays and preserve unrelated patches
+  ansible.builtin.set_fact:
+    _rhacs_central_image_path: "spec.template.spec.containers[name:central].image"
+    _rhacs_central_existing_overlays: "{{ r_rhacs_central_image_override.resources[0].spec.overlays | default([], true) }}"
+  when: r_rhacs_central_image_override.resources | length == 1
+
+- name: Separate unrelated overlays from the Central Deployment overlay
+  ansible.builtin.set_fact:
+    _rhacs_central_unrelated_overlays: []
+    _rhacs_central_preserved_patches: []
+  when: r_rhacs_central_image_override.resources | length == 1
+
+- name: Preserve overlays for other resources
+  ansible.builtin.set_fact:
+    _rhacs_central_unrelated_overlays: "{{ _rhacs_central_unrelated_overlays + [item] }}"
+  loop: "{{ _rhacs_central_existing_overlays }}"
+  when:
+    - r_rhacs_central_image_override.resources | length == 1
+    - not (item.apiVersion | default('') == 'apps/v1' and item.kind | default('') == 'Deployment' and item.name | default('') == 'central')
+
+- name: Preserve other patches targeting the Central Deployment
+  ansible.builtin.set_fact:
+    _rhacs_central_preserved_patches: "{{ _rhacs_central_preserved_patches + (item.patches | default([], true) | rejectattr('path', 'equalto', _rhacs_central_image_path) | list) }}"
+  loop: "{{ _rhacs_central_existing_overlays }}"
+  when:
+    - r_rhacs_central_image_override.resources | length == 1
+    - item.apiVersion | default('') == 'apps/v1'
+    - item.kind | default('') == 'Deployment'
+    - item.name | default('') == 'central'
+
+- name: Build the desired Central overlay list
+  ansible.builtin.set_fact:
+    _rhacs_central_image_overlay:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: central
+      patches: "{{ _rhacs_central_preserved_patches + ([{'path': _rhacs_central_image_path, 'value': _rhacs_image_override_value}] if _rhacs_image_override_value | length > 0 else []) }}"
+    _rhacs_central_desired_overlays: "{{ _rhacs_central_unrelated_overlays + ([_rhacs_central_image_overlay] if (_rhacs_central_preserved_patches | length > 0 or _rhacs_image_override_value | length > 0) else []) }}"
+  when: r_rhacs_central_image_override.resources | length == 1
+
+- name: Apply the Central image overlay while preserving other overlays
+  kubernetes.core.k8s:
+    state: patched
+    api_version: platform.stackrox.io/v1alpha1
+    kind: Central
+    merge_type: merge
+    name: "{{ r_rhacs_central_image_override.resources[0].metadata.name }}"
+    namespace: "{{ ocp4_workload_rhacs_central_namespace }}"
+    definition:
+      spec:
+        overlays: "{{ _rhacs_central_desired_overlays }}"
+  when:
+    - r_rhacs_central_image_override.resources | length == 1
+    - _rhacs_central_desired_overlays != _rhacs_central_existing_overlays
+
+- name: Wait for Central Deployment to use the requested image
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: central
+    namespace: "{{ ocp4_workload_rhacs_central_namespace }}"
+  register: r_rhacs_central_image_deployment
+  retries: 60
+  delay: 10
+  until: >-
+    r_rhacs_central_image_deployment.resources | length == 1 and
+    (r_rhacs_central_image_deployment.resources[0].spec.template.spec.containers
+      | selectattr('name', 'equalto', 'central') | map(attribute='image')
+      | first | default('')) == _rhacs_image_override_value
+  when: _rhacs_image_override_value | length > 0

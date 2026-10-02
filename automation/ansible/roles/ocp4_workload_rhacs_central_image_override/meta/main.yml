@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  role_name: ocp4_workload_rhacs_central_image_override
+  author: RHDP
+  description: Optionally override the RHACS Central image through its Central CR overlay.
+  license: MIT
+  min_ansible_version: 2.9
+  platforms: []
+  galaxy_tags:
+    - ocp
+    - openshift
+    - rhacs
+dependencies: []
