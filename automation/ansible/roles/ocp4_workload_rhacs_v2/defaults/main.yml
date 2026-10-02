@@ -12,6 +12,9 @@ ocp4_workload_rhacs_install_operator_starting_csv: ""
 ocp4_workload_rhacs_central_namespace: stackrox
 ocp4_workload_rhacs_enable_central_scanner_v4: false
 ocp4_workload_rhacs_enable_route_certs: true
+# Optional custom Central image. Use a version-matched image containing the
+# RHACS UI fix; empty keeps the operator-selected image.
+ocp4_workload_rhacs_central_image_override: ""
 ocp4_workload_rhacs_collector_config_enable: false
 ocp4_workload_rhacs_collector_config_expternal_ips_enable: true
 ocp4_workload_rhacs_central_admin_password: ""
