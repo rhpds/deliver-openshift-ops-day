@@ -2,6 +2,9 @@
 # vim: set ft=ansible
 
 # Implement your Workload deployment tasks here
+- name: Remove optional Console HTTP/2 route and restore router setting
+  ansible.builtin.include_tasks: remove_console_http2.yml
+
 - name: Read KubeVirt ConsolePlugin before removing workload-owned translation stand-in
   kubernetes.core.k8s_info:
     api_version: console.openshift.io/v1

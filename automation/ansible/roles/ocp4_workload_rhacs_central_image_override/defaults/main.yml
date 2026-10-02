@@ -1,0 +1,5 @@
+---
+# Empty leaves the Operator-selected RHACS Central image unchanged.
+# Set only to a version-matched image that has already been built and pushed.
+ocp4_workload_rhacs_central_image_override: ""
+ocp4_workload_rhacs_central_namespace: stackrox
