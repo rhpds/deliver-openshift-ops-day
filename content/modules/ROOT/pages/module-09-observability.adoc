@@ -377,7 +377,7 @@ fi
 
 === Set Up Log Collection
 
-The ClusterLogForwarder tells Vector (the collector) what to collect and where to send it. The collector runs as a DaemonSet - one pod per node. To keep ingestion small on this compact workshop cluster, application collection is limited to `alert-demo`; infrastructure and audit logs remain cluster-wide. We’ll add one tiny logger to `alert-demo` so the Application view has recent data to explore.
+The ClusterLogForwarder tells Vector (the collector) what to collect and where to send it. The collector runs as a DaemonSet - one pod per node. To keep ingestion small on this compact workshop cluster, this pipeline collects application logs from `alert-demo`, node journal logs for infrastructure, and Kubernetes API audit events for `alert-demo` only. Audit records are kept at metadata level, without request bodies. We'll add one tiny logger to `alert-demo` so the Application view has recent data to explore.
 
 Create the collector service account with the required permissions:
 
@@ -522,10 +522,10 @@ Navigate to **Observe -> Logs** in the console. Use the log type dropdown (highl
 
 image::observe-logs-view.png[Observe Logs view with log type dropdown highlighted, link=self, window=blank]
 * **Application** - Logs from user workloads
-* **Infrastructure** - Logs from OpenShift components
-* **Audit** - Kubernetes API audit logs
+* **Infrastructure** - Node journal logs
+* **Audit** - Metadata-level Kubernetes API events for `alert-demo`
 
-For the sample application records, select **Application**, choose the `alert-demo` namespace, clear any content or severity filters, and refresh. The logger writes a small message every 10 seconds; a Warning-only filter will not match those messages.
+For the sample application records, select **Application**, choose the `alert-demo` namespace, clear any content or severity filters, and refresh. The logger writes a small message every 10 seconds; a Warning-only filter will not match those messages. The Infrastructure view contains node journal logs. The Audit view contains metadata for Kubernetes API requests that target `alert-demo`; other namespaces and cluster-level requests are excluded by this workshop pipeline.
 
 image::appinfraaudit.png[Log type selector, link=self, window=blank]
 Use the filters to search by namespace, pod name, or severity level:

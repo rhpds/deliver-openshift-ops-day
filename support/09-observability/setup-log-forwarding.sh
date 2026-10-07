@@ -24,6 +24,27 @@ spec:
     application:
       includes:
       - namespace: alert-demo         # keep application collection to the workshop namespace
+  - name: workshop-infrastructure
+    type: infrastructure
+    infrastructure:
+      sources:
+      - node                           # node journal logs only
+  - name: workshop-audit
+    type: audit
+    audit:
+      sources:
+      - kubeAPI                        # Kubernetes API audit source for the namespace filter below
+  filters:
+  - name: workshop-audit-policy
+    type: kubeAPIAudit
+    kubeAPIAudit:
+      omitStages:
+      - RequestReceived                # avoid forwarding the duplicate request-start event
+      rules:
+      - level: Metadata
+        namespaces:
+        - alert-demo                   # keep API audit events for the workshop namespace only
+      - level: None                    # drop API audit events outside alert-demo
   outputs:
   - name: default-lokistack
     type: lokiStack
@@ -42,8 +63,10 @@ spec:
   - name: default-logstore
     inputRefs:
     - workshop-application             # application logs from alert-demo only
-    - infrastructure                   # cluster-wide OpenShift component logs
-    - audit                            # cluster-wide Kubernetes API audit logs
+    - workshop-infrastructure          # node journal logs only
+    - workshop-audit                    # Kubernetes API audit events from alert-demo only
+    filterRefs:
+    - workshop-audit-policy
     outputRefs:
     - default-lokistack
 EOF
