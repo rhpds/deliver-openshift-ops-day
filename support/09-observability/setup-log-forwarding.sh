@@ -12,10 +12,10 @@ spec:
     resources:
       limits:
         cpu: "1"
-        memory: 4Gi
+        memory: 1Gi
       requests:
-        cpu: "1"
-        memory: 4Gi                    # Guaranteed QoS prevents OOM killer targeting collectors
+        cpu: 100m
+        memory: 256Mi                  # reserve close to the observed scoped collector usage
   serviceAccount:
     name: collector
   inputs:
@@ -23,28 +23,28 @@ spec:
     type: application
     application:
       includes:
-      - namespace: alert-demo         # keep application collection to the workshop namespace
+      - namespace: observability-demo # keep application collection to the workshop namespace
   - name: workshop-infrastructure
     type: infrastructure
     infrastructure:
       sources:
-      - node                           # node journal logs only
+      - node                          # node journal logs for the infrastructure view
   - name: workshop-audit
     type: audit
     audit:
       sources:
-      - kubeAPI                        # Kubernetes API audit source for the namespace filter below
+      - kubeAPI                       # Kubernetes API audit events for the demo namespace
   filters:
   - name: workshop-audit-policy
     type: kubeAPIAudit
     kubeAPIAudit:
       omitStages:
-      - RequestReceived                # avoid forwarding the duplicate request-start event
+      - RequestReceived
       rules:
       - level: Metadata
         namespaces:
-        - alert-demo                   # keep API audit events for the workshop namespace only
-      - level: None                    # drop API audit events outside alert-demo
+        - observability-demo          # keep auditable demo activity, without request bodies
+      - level: None                   # omit unrelated API audit events
   outputs:
   - name: default-lokistack
     type: lokiStack
@@ -62,9 +62,9 @@ spec:
   pipelines:
   - name: default-logstore
     inputRefs:
-    - workshop-application             # application logs from alert-demo only
-    - workshop-infrastructure          # node journal logs only
-    - workshop-audit                    # Kubernetes API audit events from alert-demo only
+    - workshop-application             # application logs from the demo namespace
+    - workshop-infrastructure          # node journal logs for the infrastructure category
+    - workshop-audit                   # namespace-scoped Kubernetes API audit events
     filterRefs:
     - workshop-audit-policy
     outputRefs:
