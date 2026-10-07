@@ -21,9 +21,7 @@ spec:
   inputs:
   - name: workshop-application
     type: application
-    application:
-      includes:
-      - namespace: alert-demo       # keep application collection to the workshop namespace
+    application: {}                  # collect application logs from all namespaces
   outputs:
   - name: default-lokistack
     type: lokiStack
@@ -41,7 +39,7 @@ spec:
   pipelines:
   - name: default-logstore
     inputRefs:
-    - workshop-application             # application logs from alert-demo only
+    - workshop-application             # application logs from all namespaces
     - infrastructure                   # cluster-wide OpenShift component logs
     - audit                            # cluster-wide Kubernetes API audit logs
     outputRefs:
