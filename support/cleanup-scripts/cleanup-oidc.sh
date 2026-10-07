@@ -20,7 +20,9 @@ spec:
         name: htpasswd
 EOF
 
-# Delete client secret and OIDC users/groups
+# Remove Lightspeed access grants, then delete the client secret and OIDC users/groups
+oc adm policy remove-cluster-role-from-group lightspeed-operator-query-access ocp-developers
+oc adm policy remove-cluster-role-from-user lightspeed-operator-query-access developer1
 oc delete secret rhbk-client-secret -n openshift-config --ignore-not-found
 oc delete user developer1 admin1 viewer1 --ignore-not-found
 oc delete group ocp-admins ocp-developers ocp-viewers --ignore-not-found

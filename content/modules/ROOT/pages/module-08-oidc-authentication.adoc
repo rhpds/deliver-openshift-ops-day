@@ -272,6 +272,8 @@ image::diagrams/07_08_rbac.png[OpenShift RBAC, align=center, link=self, window=b
 
 Grant permissions to the OIDC groups:
 
+The Console plugin is visible cluster-wide, but users also need Lightspeed authorization. Grant it to the OIDC developer group so workshop developers can use Lightspeed after signing in:
+
 [source,bash,role="execute"]
 ----
 # Cluster-admin for the admins group
@@ -279,6 +281,9 @@ oc adm policy add-cluster-role-to-group cluster-admin ocp-admins
 
 # Cluster-reader for viewers
 oc adm policy add-cluster-role-to-group cluster-reader ocp-viewers
+
+# Allow OIDC developers to use OpenShift Lightspeed
+oc adm policy add-cluster-role-to-group lightspeed-operator-query-access ocp-developers
 
 # Create projects and grant developer access
 oc adm new-project app-development --display-name="Application Development"
