@@ -377,7 +377,7 @@ fi
 
 === Set Up Log Collection
 
-The ClusterLogForwarder tells Vector (the collector) what to collect and where to send it. The collector runs as a DaemonSet - one pod per node. This workshop collects application logs from all namespaces so the Logs view has active workloads to explore. Infrastructure and audit logs are also collected cluster-wide. On a busy production cluster, scope application collection to the namespaces you need to control ingestion volume.
+The ClusterLogForwarder tells Vector (the collector) what to collect and where to send it. The collector runs as a DaemonSet - one pod per node. To keep ingestion small on this compact workshop cluster, application collection is limited to `alert-demo`; infrastructure and audit logs remain cluster-wide. We’ll add one tiny logger to `alert-demo` so the Application view has recent data to explore.
 
 Create the collector service account with the required permissions:
 
@@ -401,6 +401,55 @@ until oc get configmap logging-loki-gateway-ca-bundle -n openshift-logging 2>/de
   [ $ELAPSED -ge 300 ] && echo "ERROR: Timed out waiting for CA bundle" && break
 done
 echo "CA bundle ready"
+----
+
+Create a low-volume application log source in the `alert-demo` namespace:
+
+[source,bash,role="execute"]
+----
+oc create namespace alert-demo 2>/dev/null || true
+cat <<'EOF' | oc apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: observability-log-generator
+  namespace: alert-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: observability-log-generator
+  template:
+    metadata:
+      labels:
+        app: observability-log-generator
+    spec:
+      containers:
+      - name: logger
+        image: registry.access.redhat.com/ubi9/ubi-minimal
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            echo "observability workshop application log $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            sleep 10
+          done
+        resources:
+          requests:
+            cpu: 10m
+            memory: 24Mi
+          limits:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+EOF
+oc rollout status deployment/observability-log-generator -n alert-demo --timeout=120s
 ----
 
 Create the ClusterLogForwarder - this defines the pipeline:
@@ -475,6 +524,8 @@ image::observe-logs-view.png[Observe Logs view with log type dropdown highlighte
 * **Application** - Logs from user workloads
 * **Infrastructure** - Logs from OpenShift components
 * **Audit** - Kubernetes API audit logs
+
+For the sample application records, select **Application**, choose the `alert-demo` namespace, clear any content or severity filters, and refresh. The logger writes a small message every 10 seconds; a Warning-only filter will not match those messages.
 
 image::appinfraaudit.png[Log type selector, link=self, window=blank]
 Use the filters to search by namespace, pod name, or severity level:
