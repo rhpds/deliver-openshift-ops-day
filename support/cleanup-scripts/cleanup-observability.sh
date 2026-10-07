@@ -53,6 +53,8 @@ rm -f /tmp/alertmanager-default.yaml
 
 # Remove alert-demo namespace (mailpit + crashloop test resources)
 oc delete namespace alert-demo --ignore-not-found --wait=false &>/dev/null
+# Remove the dedicated low-volume logging demo namespace
+oc delete namespace observability-demo --ignore-not-found --wait=false &>/dev/null
 
 # Remove the tracing stack
 (
@@ -71,6 +73,9 @@ oc delete namespace alert-demo --ignore-not-found --wait=false &>/dev/null
   oc delete uiplugin logging --ignore-not-found
   oc delete lokistack logging-loki -n openshift-logging --ignore-not-found
   oc delete obc loki-bucket -n openshift-logging --ignore-not-found
+  oc delete pvc storage-logging-loki-compactor-0 storage-logging-loki-index-gateway-0 \
+    storage-logging-loki-ingester-0 wal-logging-loki-ingester-0 \
+    -n openshift-logging --ignore-not-found --wait=true
   oc delete secret lokistack-dev-s3 -n openshift-logging --ignore-not-found
   oc delete configmap loki-s3-ca -n openshift-logging --ignore-not-found
   oc delete sa collector -n openshift-logging --ignore-not-found
