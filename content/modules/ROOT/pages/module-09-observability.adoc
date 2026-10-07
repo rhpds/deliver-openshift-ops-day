@@ -377,7 +377,7 @@ fi
 
 === Set Up Log Collection
 
-The ClusterLogForwarder tells Vector (the collector) what to collect and where to send it. The collector runs as a DaemonSet - one pod per node. To keep application log volume small in this workshop, the pipeline limits application logs to the `alert-demo` namespace. Infrastructure and audit logs remain cluster-wide so you can explore all three log types.
+The ClusterLogForwarder tells Vector (the collector) what to collect and where to send it. The collector runs as a DaemonSet - one pod per node. This workshop collects application logs from all namespaces so the Logs view has active workloads to explore. Infrastructure and audit logs are also collected cluster-wide. On a busy production cluster, scope application collection to the namespaces you need to control ingestion volume.
 
 Create the collector service account with the required permissions:
 
