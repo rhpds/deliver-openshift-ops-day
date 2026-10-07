@@ -178,7 +178,7 @@
     - r_backstage_deployment.resources | length > 0
     - r_backstage_deployment.resources[0].status.readyReplicas is defined
     - r_backstage_deployment.resources[0].status.readyReplicas | int >= 1
-  retries: 40
+  retries: "{{ ocp4_days_workload_rhdh_deployment_wait_retries | int }}"
   delay: 20
 
 # Get the route URL
