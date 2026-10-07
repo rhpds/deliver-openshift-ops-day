@@ -18,6 +18,12 @@ spec:
         memory: 4Gi                    # Guaranteed QoS prevents OOM killer targeting collectors
   serviceAccount:
     name: collector
+  inputs:
+  - name: workshop-application
+    type: application
+    application:
+      includes:
+      - namespace: alert-demo       # keep application collection to the workshop namespace
   outputs:
   - name: default-lokistack
     type: lokiStack
@@ -35,9 +41,9 @@ spec:
   pipelines:
   - name: default-logstore
     inputRefs:
-    - application                      # logs from user workloads
-    - infrastructure                   # logs from OpenShift components
-    - audit                            # Kubernetes API audit logs
+    - workshop-application             # application logs from alert-demo only
+    - infrastructure                   # cluster-wide OpenShift component logs
+    - audit                            # cluster-wide Kubernetes API audit logs
     outputRefs:
     - default-lokistack
 EOF
