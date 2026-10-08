@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  role_name: ocp4_workload_image_prefetch
+  author: Red Hat
+  description: |
+    Pre-pulls a list of container images onto cluster nodes via a DaemonSet,
+    ahead of a later workload whose own Deployment depends on one of those
+    images already being cached.
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms: []
+  galaxy_tags:
+  - ocp4
+  - openshift
+dependencies: []

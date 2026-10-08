@@ -1,0 +1,8 @@
+---
+- name: Delete image prefetch DaemonSet
+  kubernetes.core.k8s:
+    state: absent
+    namespace: "{{ ocp4_workload_image_prefetch_namespace }}"
+    api_version: apps/v1
+    kind: DaemonSet
+    name: image-prefetch
