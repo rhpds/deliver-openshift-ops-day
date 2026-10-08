@@ -1,0 +1,14 @@
+---
+- name: Apply image prefetch DaemonSet
+  kubernetes.core.k8s:
+    state: present
+    namespace: "{{ ocp4_workload_image_prefetch_namespace }}"
+    definition: "{{ lookup('template', 'image_prefetch_daemonset.yml.j2') | from_yaml }}"
+  when: ocp4_workload_image_prefetch_images | length > 0
+
+# Leave this as the last task in the playbook.
+# --------------------------------------------
+- name: workload tasks complete
+  debug:
+    msg: "Workload Tasks completed successfully."
+  when: not silent | bool
