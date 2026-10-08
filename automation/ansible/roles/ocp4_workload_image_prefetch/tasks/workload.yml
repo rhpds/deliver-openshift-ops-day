@@ -20,6 +20,13 @@
     (ocp4_workload_image_prefetch_ds_info.resources[0].status.desiredNumberScheduled | default(0))
   retries: 60
   delay: 20
+  # Non-fatal: pulling several large images across every matching node can
+  # take longer than this budget under registry/disk contention. The
+  # dependent workload (e.g. the agentic OLS Deployment) typically isn't
+  # created for a while yet - the pull keeps going in the background
+  # regardless of this task's outcome, so a slow prefetch should never be
+  # worse than no prefetch at all.
+  ignore_errors: true
   when: ocp4_workload_image_prefetch_images | length > 0
 
 # Leave this as the last task in the playbook.
