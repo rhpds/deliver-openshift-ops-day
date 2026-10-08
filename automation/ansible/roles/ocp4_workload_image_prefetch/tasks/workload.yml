@@ -6,6 +6,22 @@
     definition: "{{ lookup('template', 'image_prefetch_daemonset.yml.j2') | from_yaml }}"
   when: ocp4_workload_image_prefetch_images | length > 0
 
+- name: Wait for image prefetch DaemonSet to finish pulling on all matching nodes
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: DaemonSet
+    name: image-prefetch
+    namespace: "{{ ocp4_workload_image_prefetch_namespace }}"
+  register: ocp4_workload_image_prefetch_ds_info
+  until:
+  - ocp4_workload_image_prefetch_ds_info.resources | length > 0
+  - ocp4_workload_image_prefetch_ds_info.resources[0].status.desiredNumberScheduled | default(0) > 0
+  - (ocp4_workload_image_prefetch_ds_info.resources[0].status.numberReady | default(0)) ==
+    (ocp4_workload_image_prefetch_ds_info.resources[0].status.desiredNumberScheduled | default(0))
+  retries: 60
+  delay: 20
+  when: ocp4_workload_image_prefetch_images | length > 0
+
 # Leave this as the last task in the playbook.
 # --------------------------------------------
 - name: workload tasks complete
