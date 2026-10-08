@@ -6,7 +6,7 @@
     definition: "{{ lookup('template', 'image_prefetch_daemonset.yml.j2') | from_yaml }}"
   when: ocp4_workload_image_prefetch_images | length > 0
 
-- name: Wait for image prefetch DaemonSet to finish pulling on all matching nodes
+- name: Wait for image prefetch DaemonSet to be scheduled on all matching nodes
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: DaemonSet
@@ -16,16 +16,43 @@
   until:
   - ocp4_workload_image_prefetch_ds_info.resources | length > 0
   - ocp4_workload_image_prefetch_ds_info.resources[0].status.desiredNumberScheduled | default(0) > 0
-  - (ocp4_workload_image_prefetch_ds_info.resources[0].status.numberReady | default(0)) ==
-    (ocp4_workload_image_prefetch_ds_info.resources[0].status.desiredNumberScheduled | default(0))
+  retries: 30
+  delay: 10
+  ignore_errors: true
+  when: ocp4_workload_image_prefetch_images | length > 0
+
+# The prefetch DaemonSet's containers run the real workload images with no
+# config/args, so they crash-loop as soon as they start - numberReady can
+# never reach desiredNumberScheduled even after every image has finished
+# pulling (confirmed live: all 3 images pulled in under 9 minutes, but every
+# container then sat in CrashLoopBackOff for the rest of the 20-minute wait
+# budget). containerStatuses[].imageID is populated as soon as the image is
+# pulled, independent of whether the container then crashes, so it's used
+# here instead of pod/DaemonSet readiness.
+- name: Wait for image prefetch DaemonSet to finish pulling its images on every node
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: "{{ ocp4_workload_image_prefetch_namespace }}"
+    label_selectors:
+    - app=image-prefetch
+  register: ocp4_workload_image_prefetch_pod_info
+  until:
+  - ocp4_workload_image_prefetch_ds_info.resources | length > 0
+  - (ocp4_workload_image_prefetch_pod_info.resources
+      | map(attribute='status.containerStatuses', default=[])
+      | map('selectattr', 'imageID', 'defined')
+      | map('list')
+      | map('length')
+      | sum)
+    == ((ocp4_workload_image_prefetch_ds_info.resources[0].status.desiredNumberScheduled | default(0))
+        * (ocp4_workload_image_prefetch_images | length))
   retries: 60
   delay: 20
-  # Non-fatal: pulling several large images across every matching node can
-  # take longer than this budget under registry/disk contention. The
-  # dependent workload (e.g. the agentic OLS Deployment) typically isn't
-  # created for a while yet - the pull keeps going in the background
-  # regardless of this task's outcome, so a slow prefetch should never be
-  # worse than no prefetch at all.
+  # Non-fatal: the dependent workload (e.g. the agentic OLS Deployment)
+  # typically isn't created for a while yet - the pull keeps going in the
+  # background regardless of this task's outcome, so a slow or incomplete
+  # prefetch should never be worse than no prefetch at all.
   ignore_errors: true
   when: ocp4_workload_image_prefetch_images | length > 0
 
