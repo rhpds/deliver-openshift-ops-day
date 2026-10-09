@@ -56,6 +56,41 @@
   when: r_central_cr.resources[0].spec.central.exposure.route.reencrypt.enabled | default(false)
   ansible.builtin.meta: end_host
 
+# Confirmed live on cluster-h2btq on 2026-10-09 that Central's pod has no
+# ephemeral-storage request (only cpu/memory, set by the RHACS operator's own
+# CR defaults). This compact 3-node cluster runs a custom KubeletConfig
+# (compact-cluster-image-gc, imageGC high/low 75/65) because it has no
+# dedicated worker and disk fills up fast during provisioning. When a node
+# briefly crosses the eviction-hard disk-pressure threshold, kubelet evicts
+# pods with no ephemeral-storage request first — which was Central, 18 min
+# before this role's "Verify Central is reachable" check gave up (50s
+# budget), causing the job to fail on an unrelated route-switch step while
+# Central was just being rescheduled.
+# This sets an explicit ephemeral-storage request so Central isn't first in
+# line for eviction. It does not fix the underlying disk pressure itself.
+# Verified live on cluster-h2btq on 2026-10-09: patching this onto the
+# running Central CR rolled new Central/Scanner pods cleanly (no
+# FailedScheduling, no eviction), both reached Ready, and the Central CR's
+# own Available condition reported "All workloads are ready" afterward.
+- name: Set ephemeral-storage request on Central and Scanner so they aren't evicted first under disk pressure
+  kubernetes.core.k8s:
+    state: patched
+    api_version: platform.stackrox.io/v1alpha1
+    kind: Central
+    name: "{{ _rhacs_central_cr_name }}"
+    namespace: stackrox
+    definition:
+      spec:
+        central:
+          resources:
+            requests:
+              ephemeral-storage: 1Gi
+        scanner:
+          analyzer:
+            resources:
+              requests:
+                ephemeral-storage: 500Mi
+
 - name: Get cluster ingress domain
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
@@ -166,6 +201,12 @@
     r_central_route.resources | length > 0 and
     r_central_route.resources[0].spec.host == _rhacs_central_reencrypt_host
 
+# Old budget (10 x 5s = 50s) assumed Central's pod was already up and only
+# the route needed a moment to pick it up. It has no tolerance for Central
+# being evicted/rescheduled (observed ~14 min recovery on cluster-h2btq on
+# 2026-10-09). Widened as a safety net on top of the ephemeral-storage
+# request above, which should make that eviction far less likely in the
+# first place.
 - name: Verify Central is reachable after route switch
   ansible.builtin.uri:
     url: "https://{{ _rhacs_central_reencrypt_host }}/v1/ping"
@@ -173,8 +214,8 @@
     validate_certs: false
     status_code: [200, 401]
   register: r_central_verify
-  retries: 10
-  delay: 5
+  retries: 60
+  delay: 15
   until: r_central_verify.status in [200, 401]
 
 - name: Report result
