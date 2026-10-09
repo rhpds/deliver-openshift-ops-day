@@ -1,0 +1,12 @@
+---
+- name: Apply optional RHACS Central image override
+  when: ACTION == "provision" and ocp4_workload_rhacs_central_image_override | length > 0
+  ansible.builtin.include_tasks: update_overlay.yml
+  vars:
+    _rhacs_image_override_value: "{{ ocp4_workload_rhacs_central_image_override }}"
+
+- name: Remove RHACS Central image override
+  when: ACTION == "destroy"
+  ansible.builtin.include_tasks: update_overlay.yml
+  vars:
+    _rhacs_image_override_value: ""
