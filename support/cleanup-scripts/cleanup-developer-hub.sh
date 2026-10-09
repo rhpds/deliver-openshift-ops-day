@@ -14,12 +14,15 @@ oc patch backstage developer-hub -n backstage --type=merge -p '{
   }
 }' 2>/dev/null || true
 
+# Wait for the rollout triggered by the patch above to complete *before*
+# removing the SA/token/configmap, so pods still on the old config (which
+# still reference the Kubernetes plugin's SA token) aren't using resources
+# that have already disappeared out from under them mid-rollout.
+oc rollout status deployment/backstage-developer-hub -n backstage --timeout=300s 2>/dev/null || true
+
 # Remove the service account, token, and plugin configmap
 oc delete sa rhdh-kubernetes-plugin -n backstage --ignore-not-found
 oc delete secret rhdh-kubernetes-plugin-token -n backstage --ignore-not-found
 oc delete configmap dynamic-plugins-rhdh -n backstage --ignore-not-found
-
-# Wait for the rollout to complete
-oc rollout status deployment/backstage-developer-hub -n backstage --timeout=300s 2>/dev/null || true
 
 echo "Cleanup complete"
