@@ -176,6 +176,7 @@
               | json_query("spec.links[?contains(href,'linux')].href") | first }}
 
         - name: Download virtctl cli tool
+          delegate_to: "{{ groups['bastions'][0] }}"
           ansible.builtin.get_url:
             url: "{{ _ocp4_workload_openshift_virtualization_virtctl_url }}"
             validate_certs: false
@@ -187,14 +188,13 @@
           delay: 10
 
         - name: Install virtctl CLI on bastion
-          # The execution environment image has no sudo binary at all
-          # (confirmed via quay.io/agnosticd/ee-multicloud), so become
-          # can never succeed here, and when the automation runs as a
-          # non-root arbitrary UID (as it does under the AWX/Tower
-          # execution environment on OpenShift) /usr/bin isn't writable
-          # either. virtctl is a student/instructor convenience CLI that
-          # nothing else in this collection depends on, so treat a failed
-          # install as non-fatal rather than aborting the whole workload.
+          # Must delegate to the actual bastion VM (like install_hcp_cli.yaml
+          # does for hcp) and become root there. Without delegate_to this ran
+          # on the AWX/Tower execution-environment pod itself, which has no
+          # sudo and no writable /usr/bin - that's why it was failing, not
+          # because the real bastion lacks root.
+          delegate_to: "{{ groups['bastions'][0] }}"
+          become: true
           ansible.builtin.unarchive:
             src: /tmp/virtctl.tar.gz
             remote_src: true
@@ -205,18 +205,9 @@
           args:
             creates: /usr/bin/virtctl
           register: r_virtctl_install
-          ignore_errors: true
-
-        - name: Warn if virtctl could not be installed on bastion
-          when: r_virtctl_install is failed
-          ansible.builtin.debug:
-            msg: >-
-              Could not install virtctl to /usr/bin (likely running as a
-              non-root user with no write access and no sudo available).
-              Continuing without it since it is not required by anything
-              else in this collection.
 
         - name: Remove downloaded file
+          delegate_to: "{{ groups['bastions'][0] }}"
           ansible.builtin.file:
             state: absent
             path: /tmp/virtctl.tar.gz
