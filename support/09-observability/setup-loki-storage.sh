@@ -37,7 +37,7 @@ metadata:
   namespace: openshift-logging
 spec:
   managementState: Managed
-  size: 1x.extra-small              # smallest size - scale up for production
+  size: 1x.demo                     # compact workshop profile; single-replica, non-HA
   replication:
     factor: 1                        # single replica - matches compact cluster sizing
   storage:

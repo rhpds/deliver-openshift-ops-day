@@ -24,6 +24,9 @@ ocp4_days_workload_rhdh_catalog_snapshot_image_tag: ""
 ocp4_days_workload_rhdh_instance_name: developer-hub
 ocp4_days_workload_rhdh_replicas: 1
 
+# Large RHDH and Lightspeed images plus dynamic-plugin setup can exceed 15 minutes.
+ocp4_days_workload_rhdh_deployment_wait_retries: 60
+
 # Enable guest authentication (required for workshop)
 ocp4_days_workload_rhdh_enable_guest_auth: true
 

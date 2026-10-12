@@ -298,7 +298,7 @@ Install the Loki Operator from the Software Catalog - this is the same process f
 
 1. Navigate to **Ecosystem -> Software Catalog**
 2. Search for **Loki Operator**
-3. Click the **Loki Operator** tile (select the one labeled **Red Hat**, not snapshot-lightspeed)
+3. Click either **Loki Operator** tile labeled **redhat-operators-snapshot**
 +
 image::obs-loki-operator-details.png[Loki Operator details with Install button highlighted, link=self, window=blank]
 +
@@ -362,6 +362,8 @@ oc wait --for=jsonpath='{.status.phase}'=Bound obc/loki-bucket -n openshift-logg
 
 Now extract the S3 credentials, create the CA cert ConfigMap, and deploy the LokiStack - all in one block so the variables stay in scope:
 
+The setup uses Loki's `1x.demo` profile for this compact workshop cluster. It is intended for demonstrations and does not provide high availability or production performance guarantees. With one ingester, log ingestion can pause if that ingester restarts.
+
 [source,bash,subs="+attributes",role="execute"]
 ----
 if curl -fsSL --retry 3 --retry-delay 2 -o /tmp/setup-loki-storage.sh {support_base_url}/09-observability/setup-loki-storage.sh; then
@@ -375,7 +377,7 @@ fi
 
 === Set Up Log Collection
 
-The ClusterLogForwarder tells Vector (the collector) what to collect and where to send it. The collector runs as a DaemonSet - one pod per node - so it captures logs from every container on every node.
+The ClusterLogForwarder tells Vector (the collector) what to collect and where to send it. The collector runs as a DaemonSet - one pod per node. All three log categories remain enabled, with their inputs scoped for this compact workshop cluster: application logs and Kubernetes API audit events come from a dedicated `observability-demo` namespace, while infrastructure collection uses node journal logs. This keeps each category available in the console without forwarding every cluster-wide event.
 
 Create the collector service account with the required permissions:
 
@@ -399,6 +401,55 @@ until oc get configmap logging-loki-gateway-ca-bundle -n openshift-logging 2>/de
   [ $ELAPSED -ge 300 ] && echo "ERROR: Timed out waiting for CA bundle" && break
 done
 echo "CA bundle ready"
+----
+
+Create a dedicated namespace and a low-volume application log source. Its activity will also provide namespaced Kubernetes API audit events:
+
+[source,bash,role="execute"]
+----
+oc create namespace observability-demo 2>/dev/null || true
+cat <<'EOF' | oc apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: observability-log-generator
+  namespace: observability-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: observability-log-generator
+  template:
+    metadata:
+      labels:
+        app: observability-log-generator
+    spec:
+      containers:
+      - name: logger
+        image: registry.access.redhat.com/ubi9/ubi-minimal
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            echo "observability workshop application log $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            sleep 10
+          done
+        resources:
+          requests:
+            cpu: 10m
+            memory: 24Mi
+          limits:
+            cpu: 50m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
+EOF
+oc rollout status deployment/observability-log-generator -n observability-demo --timeout=120s
 ----
 
 Create the ClusterLogForwarder - this defines the pipeline:
@@ -435,17 +486,34 @@ EOF
 
 === Verify and View Logs
 
-Wait for the collector pods to start before verifying the full stack:
+Wait for every collector replica and the LokiStack to become ready before verifying the full stack:
 
 [source,bash,role="execute"]
 ----
 echo "Waiting for collector pods to start..."
 ELAPSED=0
-until oc get pods -n openshift-logging -l app.kubernetes.io/component=collector --no-headers 2>/dev/null | grep -q Running; do
+while true; do
+  DESIRED=$(oc get daemonset collector -n openshift-logging -o jsonpath='{.status.desiredNumberScheduled}' 2>/dev/null || true)
+  READY=$(oc get daemonset collector -n openshift-logging -o jsonpath='{.status.numberReady}' 2>/dev/null || true)
+  if [ "${DESIRED:-0}" -gt 0 ] && [ "${READY:-0}" -eq "${DESIRED:-0}" ]; then
+    break
+  fi
   sleep 10; ELAPSED=$((ELAPSED+10))
-  [ $ELAPSED -ge 300 ] && echo "ERROR: Timed out - check 'oc get pods -n openshift-logging'" && break
+  if [ $ELAPSED -ge 300 ]; then
+    echo "ERROR: Timed out waiting for all collector pods - check 'oc get pods -n openshift-logging'"
+    exit 1
+  fi
 done
+oc wait --for=condition=Ready lokistack/logging-loki -n openshift-logging --timeout=300s
 oc get pods -n openshift-logging
+----
+
+Create and remove a ConfigMap in the demo namespace. These API actions create audit records after collection is active:
+
+[source,bash,role="execute"]
+----
+oc create configmap audit-demo --from-literal=source=observability-workshop -n observability-demo
+oc delete configmap audit-demo -n observability-demo
 ----
 
 You should see the logging operator, collector pods (one per node), and multiple Loki component pods all `Running`.
@@ -461,9 +529,11 @@ Click **Refresh** to reload the console with the new Logs view. This may log you
 Navigate to **Observe -> Logs** in the console. Use the log type dropdown (highlighted in red below) to switch between three log types:
 
 image::observe-logs-view.png[Observe Logs view with log type dropdown highlighted, link=self, window=blank]
-* **Application** - Logs from user workloads
-* **Infrastructure** - Logs from OpenShift components
-* **Audit** - Kubernetes API audit logs
+* **Application** - Logs from workloads in `observability-demo`
+* **Infrastructure** - Node journal logs
+* **Audit** - Metadata-level Kubernetes API events for `observability-demo`
+
+For the sample application records, select **Application**, choose the `observability-demo` namespace, clear any content or severity filters, and refresh. The logger writes a small message every 10 seconds; a Warning-only filter will not match those messages. The Infrastructure view shows node journal logs. The Audit view shows metadata for Kubernetes API requests involving `observability-demo`; request bodies and unrelated audit events are excluded to keep ingestion small on this workshop cluster.
 
 image::appinfraaudit.png[Log type selector, link=self, window=blank]
 Use the filters to search by namespace, pod name, or severity level:

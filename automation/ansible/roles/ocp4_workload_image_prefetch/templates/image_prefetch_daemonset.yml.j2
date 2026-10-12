@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: image-prefetch
+  labels:
+    app: image-prefetch
+spec:
+  selector:
+    matchLabels:
+      app: image-prefetch
+  template:
+    metadata:
+      labels:
+        app: image-prefetch
+    spec:
+      nodeSelector: {{ ocp4_workload_image_prefetch_node_selector | to_json }}
+      tolerations:
+      - operator: Exists
+      terminationGracePeriodSeconds: 1
+      containers:
+{% for image in ocp4_workload_image_prefetch_images %}
+      - name: prefetch-{{ loop.index }}
+        image: "{{ image }}"
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests:
+            cpu: 5m
+            memory: 10Mi
+          limits:
+            cpu: 10m
+            memory: 20Mi
+{% endfor %}

@@ -176,6 +176,7 @@
               | json_query("spec.links[?contains(href,'linux')].href") | first }}
 
         - name: Download virtctl cli tool
+          delegate_to: "{{ groups['bastions'][0] }}"
           ansible.builtin.get_url:
             url: "{{ _ocp4_workload_openshift_virtualization_virtctl_url }}"
             validate_certs: false
@@ -186,16 +187,14 @@
           retries: 20
           delay: 10
 
-        - name: Check current bastion user id
-          ansible.builtin.command: id -u
-          register: r_bastion_uid
-          changed_when: false
-
         - name: Install virtctl CLI on bastion
-          # Only become when not already root - some bastion images run
-          # the automation as root and don't have a sudo binary installed,
-          # which makes an unconditional become: true fail outright.
-          become: "{{ r_bastion_uid.stdout != '0' }}"
+          # Must delegate to the actual bastion VM (like install_hcp_cli.yaml
+          # does for hcp) and become root there. Without delegate_to this ran
+          # on the AWX/Tower execution-environment pod itself, which has no
+          # sudo and no writable /usr/bin - that's why it was failing, not
+          # because the real bastion lacks root.
+          delegate_to: "{{ groups['bastions'][0] }}"
+          become: true
           ansible.builtin.unarchive:
             src: /tmp/virtctl.tar.gz
             remote_src: true
@@ -205,8 +204,10 @@
             group: root
           args:
             creates: /usr/bin/virtctl
+          register: r_virtctl_install
 
         - name: Remove downloaded file
+          delegate_to: "{{ groups['bastions'][0] }}"
           ansible.builtin.file:
             state: absent
             path: /tmp/virtctl.tar.gz

@@ -1,0 +1,22 @@
+---
+# Pre-pulls a list of container images onto nodes matching a selector by
+# running a DaemonSet that references them directly - no operator or
+# OperatorHub catalog required. Useful ahead of a later workload that
+# creates a Deployment depending on one of these images already being
+# cached, where a cold pull would otherwise blow that workload's own
+# readiness/availability wait budget.
+silent: false
+
+# Namespace the prefetch DaemonSet runs in.
+ocp4_workload_image_prefetch_namespace: default
+
+# Node selector (dict) controlling which nodes receive the DaemonSet.
+# Empty by default (all nodes) - not every cluster topology has
+# dedicated worker-labeled nodes (e.g. compact clusters).
+ocp4_workload_image_prefetch_node_selector: {}
+
+# Images to pre-pull onto matching nodes. The DaemonSet pod's containers
+# are left to run their image's default entrypoint; whether they start
+# successfully is irrelevant since the pull itself already completed by
+# the time a container attempts to start.
+ocp4_workload_image_prefetch_images: []

@@ -12,12 +12,39 @@ spec:
     resources:
       limits:
         cpu: "1"
-        memory: 4Gi
+        memory: 1Gi
       requests:
-        cpu: "1"
-        memory: 4Gi                    # Guaranteed QoS prevents OOM killer targeting collectors
+        cpu: 100m
+        memory: 256Mi                  # reserve close to the observed scoped collector usage
   serviceAccount:
     name: collector
+  inputs:
+  - name: workshop-application
+    type: application
+    application:
+      includes:
+      - namespace: observability-demo # keep application collection to the workshop namespace
+  - name: workshop-infrastructure
+    type: infrastructure
+    infrastructure:
+      sources:
+      - node                          # node journal logs for the infrastructure view
+  - name: workshop-audit
+    type: audit
+    audit:
+      sources:
+      - kubeAPI                       # Kubernetes API audit events for the demo namespace
+  filters:
+  - name: workshop-audit-policy
+    type: kubeAPIAudit
+    kubeAPIAudit:
+      omitStages:
+      - RequestReceived
+      rules:
+      - level: Metadata
+        namespaces:
+        - observability-demo          # keep auditable demo activity, without request bodies
+      - level: None                   # omit unrelated API audit events
   outputs:
   - name: default-lokistack
     type: lokiStack
@@ -35,9 +62,11 @@ spec:
   pipelines:
   - name: default-logstore
     inputRefs:
-    - application                      # logs from user workloads
-    - infrastructure                   # logs from OpenShift components
-    - audit                            # Kubernetes API audit logs
+    - workshop-application             # application logs from the demo namespace
+    - workshop-infrastructure          # node journal logs for the infrastructure category
+    - workshop-audit                   # namespace-scoped Kubernetes API audit events
+    filterRefs:
+    - workshop-audit-policy
     outputRefs:
     - default-lokistack
 EOF

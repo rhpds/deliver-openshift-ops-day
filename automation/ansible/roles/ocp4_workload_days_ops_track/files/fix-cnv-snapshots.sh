@@ -95,7 +95,7 @@ while [ $SECONDS -lt $DEADLINE ]; do
     LEADER_POD=$(echo "${LEADER_ID}" | \
       sed 's/openshift-storage-rbd-csi-ceph-com-ctrlplugin-/openshift-storage.rbd.csi.ceph.com-ctrlplugin-/')
     SYNCED=$(oc logs -n openshift-storage "${LEADER_POD}" -c csi-snapshotter --tail=200 2>/dev/null \
-      | grep "Caches populated" | wc -l)
+      | grep -c "Caches populated" || true)
     if [ "${SYNCED}" -ge 4 ]; then
       echo "All 4 caches populated - csi-snapshotter workers are running."
       break
