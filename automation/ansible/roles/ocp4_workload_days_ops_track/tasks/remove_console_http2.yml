@@ -1,0 +1,108 @@
+---
+- name: Read saved Console HTTP/2 ownership state
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: ops-track-console-http2-state
+    namespace: openshift-config
+  register: r_console_http2_state_for_removal
+  failed_when: false
+
+- name: Read cluster ingress before removing the owned Console route
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: r_console_http2_ingress_for_removal
+  when: r_console_http2_state_for_removal.resources | length > 0
+
+- name: Remove only the Console component route created by this role
+  kubernetes.core.k8s:
+    state: patched
+    merge_type: merge
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+    definition:
+      spec:
+        componentRoutes: >-
+          {{ (r_console_http2_ingress_for_removal.resources[0].spec.componentRoutes | default([], true)
+              | rejectattr('name', 'equalto', 'console') | list)
+             + (r_console_http2_ingress_for_removal.resources[0].spec.componentRoutes | default([], true)
+                | selectattr('name', 'equalto', 'console')
+                | rejectattr('hostname', 'equalto', r_console_http2_state_for_removal.resources[0].data.hostname)
+                | list) }}
+  when:
+    - r_console_http2_state_for_removal.resources | length > 0
+    - r_console_http2_state_for_removal.resources[0].data.component_route_created == 'true'
+
+- name: Read IngressController before restoring its HTTP/2 setting
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1
+    kind: IngressController
+    name: default
+    namespace: openshift-ingress-operator
+  register: r_console_http2_ingress_controller_for_removal
+  when: r_console_http2_state_for_removal.resources | length > 0
+
+- name: Restore the previous HTTP/2 annotation value
+  kubernetes.core.k8s:
+    state: patched
+    merge_type: merge
+    api_version: operator.openshift.io/v1
+    kind: IngressController
+    name: default
+    namespace: openshift-ingress-operator
+    definition:
+      metadata:
+        annotations:
+          ingress.operator.openshift.io/default-enable-http2: "{{ r_console_http2_state_for_removal.resources[0].data.original_http2_annotation_value }}"
+  when:
+    - r_console_http2_state_for_removal.resources | length > 0
+    - r_console_http2_state_for_removal.resources[0].data.original_http2_annotation_present == 'true'
+    - (r_console_http2_ingress_controller_for_removal.resources[0].metadata.annotations | default({})).get('ingress.operator.openshift.io/default-enable-http2', '') == 'true'
+
+- name: Remove HTTP/2 annotation if this role added it
+  kubernetes.core.k8s_json_patch:
+    api_version: operator.openshift.io/v1
+    kind: IngressController
+    name: default
+    namespace: openshift-ingress-operator
+    patch:
+      - op: remove
+        path: /metadata/annotations/ingress.operator.openshift.io~1default-enable-http2
+  when:
+    - r_console_http2_state_for_removal.resources | length > 0
+    - r_console_http2_state_for_removal.resources[0].data.original_http2_annotation_present == 'false'
+    - (r_console_http2_ingress_controller_for_removal.resources[0].metadata.annotations | default({})).get('ingress.operator.openshift.io/default-enable-http2', '') == 'true'
+
+- name: Remove Certificate created by this role
+  kubernetes.core.k8s:
+    state: absent
+    api_version: cert-manager.io/v1
+    kind: Certificate
+    name: "{{ r_console_http2_state_for_removal.resources[0].data.certificate_name }}"
+    namespace: openshift-config
+  when:
+    - r_console_http2_state_for_removal.resources | length > 0
+    - r_console_http2_state_for_removal.resources[0].data.certificate_created == 'true'
+
+- name: Remove TLS Secret created by this role
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    name: "{{ r_console_http2_state_for_removal.resources[0].data.tls_secret_name }}"
+    namespace: openshift-config
+  when:
+    - r_console_http2_state_for_removal.resources | length > 0
+    - r_console_http2_state_for_removal.resources[0].data.certificate_created == 'true'
+
+- name: Remove saved Console HTTP/2 ownership state
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: ConfigMap
+    name: ops-track-console-http2-state
+    namespace: openshift-config
+  when: r_console_http2_state_for_removal.resources | length > 0

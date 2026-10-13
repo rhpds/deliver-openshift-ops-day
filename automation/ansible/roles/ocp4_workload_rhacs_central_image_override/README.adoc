@@ -1,0 +1,19 @@
+= RHACS Central Image Override
+
+This role runs after the standard `agnosticd.core_workloads.ocp4_workload_rhacs`
+installer and optionally adds a version-matched image override to the existing
+Central custom resource. It does not install or replace RHACS.
+
+`ocp4_workload_rhacs_central_image_override` defaults to an empty string. Set
+it to an image that has already been built and pushed to a registry accessible
+to the cluster. The role updates the `spec.overlays` entry for the Central
+Deployment, preserves unrelated overlays and patches, and waits until the
+Deployment template uses the requested image. On destroy it removes only the
+Central image patch and preserves unrelated overlays.
+
+The draft source patch for the RHACS 4.11.4 `/v1/metadata` 403 retry loop is in
+`ocp4_workload_rhacs_v2/files/patches/metadata-provider-pause-on-error-4.11.4.patch`.
+It has not been validated against a build or login flow. This role does not
+build or publish that image. Leave the variable empty until a matching patched
+image is built, published, and verified; the empty default makes this role a
+no-op.
