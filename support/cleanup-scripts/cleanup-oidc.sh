@@ -40,19 +40,23 @@ oc adm policy remove-cluster-role-from-user lightspeed-operator-query-access dev
 
 # The authentication operator applies the OAuth change above in several
 # stages (trust bundle sync, cert rotation, etc.), and oauth-openshift can
-# roll out more than once in a row as a result. We wait for full, sustained
-# stability *before* tearing down the rhbk namespace below - not just so the
-# attendee's Console tab is safe to touch (see configure-oauth-oidc.sh), but
-# because the old rhbk-configured oauth-openshift pods can still be running
-# and trying to reach Keycloak while the rollout is in progress. Deleting
-# rhbk first (the previous order) left a window where those still-running
-# old pods got connection failures against an already-deleted OIDC backend.
+# roll out more than once in a row as a result. The console-operator also
+# rolls the console deployment itself on its own schedule, since it has to
+# regenerate the login page's identity-provider list. We wait for full,
+# sustained stability of both *before* tearing down the rhbk namespace below
+# - not just so the attendee's Console tab is safe to log back into (see
+# configure-oauth-oidc.sh), but because the old rhbk-configured
+# oauth-openshift pods can still be running and trying to reach Keycloak
+# while the rollout is in progress. Deleting rhbk first (the previous order)
+# left a window where those still-running old pods got connection failures
+# against an already-deleted OIDC backend.
 echo "Waiting for OAuth to fully stabilize before tearing down rhbk - do NOT reload or log out of the OCP Console tab until this finishes."
 REQUIRED_STABLE_SECS=30
 MAX_WAIT_SECS=600
 STABLE_FOR=0
 TOTAL_ELAPSED=0
 LAST_GEN="$GEN"
+LAST_CONSOLE_GEN=""
 
 while :; do
   PROGRESSING=$(oc get co authentication -o jsonpath='{.status.conditions[?(@.type=="Progressing")].status}' 2>/dev/null || echo "")
@@ -64,24 +68,42 @@ while :; do
   UPDATED=$(oc get deployment oauth-openshift -n openshift-authentication -o jsonpath='{.status.updatedReplicas}' 2>/dev/null || echo "0")
   REPLICAS=$(oc get deployment oauth-openshift -n openshift-authentication -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
 
+  CONSOLE_PROGRESSING=$(oc get co console -o jsonpath='{.status.conditions[?(@.type=="Progressing")].status}' 2>/dev/null || echo "")
+  CONSOLE_AVAILABLE=$(oc get co console -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null || echo "")
+  CONSOLE_DEGRADED=$(oc get co console -o jsonpath='{.status.conditions[?(@.type=="Degraded")].status}' 2>/dev/null || echo "")
+  CONSOLE_CUR_GEN=$(oc get deployment console -n openshift-console -o jsonpath='{.metadata.generation}' 2>/dev/null || echo "")
+  CONSOLE_OBS_GEN=$(oc get deployment console -n openshift-console -o jsonpath='{.status.observedGeneration}' 2>/dev/null || echo "")
+  CONSOLE_READY=$(oc get deployment console -n openshift-console -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
+  CONSOLE_UPDATED=$(oc get deployment console -n openshift-console -o jsonpath='{.status.updatedReplicas}' 2>/dev/null || echo "0")
+  CONSOLE_REPLICAS=$(oc get deployment console -n openshift-console -o jsonpath='{.status.replicas}' 2>/dev/null || echo "0")
+
   if [ "$PROGRESSING" = "False" ] && [ "$AVAILABLE" = "True" ] && [ "$DEGRADED" = "False" ] \
      && [ -n "$CUR_GEN" ] && [ "$CUR_GEN" = "$OBS_GEN" ] \
      && [ "${READY:-0}" = "3" ] && [ "${UPDATED:-0}" = "3" ] && [ "${REPLICAS:-0}" = "3" ] \
-     && [ "$CUR_GEN" = "$LAST_GEN" ]; then
+     && [ "$CUR_GEN" = "$LAST_GEN" ] \
+     && [ "$CONSOLE_PROGRESSING" = "False" ] && [ "$CONSOLE_AVAILABLE" = "True" ] && [ "$CONSOLE_DEGRADED" = "False" ] \
+     && [ -n "$CONSOLE_CUR_GEN" ] && [ "$CONSOLE_CUR_GEN" = "$CONSOLE_OBS_GEN" ] \
+     && [ -n "$CONSOLE_REPLICAS" ] && [ "$CONSOLE_REPLICAS" != "0" ] \
+     && [ "${CONSOLE_READY:-0}" = "$CONSOLE_REPLICAS" ] && [ "${CONSOLE_UPDATED:-0}" = "$CONSOLE_REPLICAS" ] \
+     && [ "$CONSOLE_CUR_GEN" = "$LAST_CONSOLE_GEN" ]; then
     STABLE_FOR=$((STABLE_FOR+5))
   else
     if [ -n "$LAST_GEN" ] && [ -n "$CUR_GEN" ] && [ "$CUR_GEN" != "$LAST_GEN" ]; then
       echo "  oauth-openshift restarted again (generation $LAST_GEN -> $CUR_GEN) - this is expected, resetting the stability timer"
     fi
+    if [ -n "$LAST_CONSOLE_GEN" ] && [ -n "$CONSOLE_CUR_GEN" ] && [ "$CONSOLE_CUR_GEN" != "$LAST_CONSOLE_GEN" ]; then
+      echo "  console restarted again (generation $LAST_CONSOLE_GEN -> $CONSOLE_CUR_GEN) - this is expected, resetting the stability timer"
+    fi
     STABLE_FOR=0
   fi
   LAST_GEN="$CUR_GEN"
+  LAST_CONSOLE_GEN="$CONSOLE_CUR_GEN"
 
   [ "$STABLE_FOR" -ge "$REQUIRED_STABLE_SECS" ] && break
 
   sleep 5; TOTAL_ELAPSED=$((TOTAL_ELAPSED+5))
   if [ "$TOTAL_ELAPSED" -ge "$MAX_WAIT_SECS" ]; then
-    echo "WARNING: Timed out after ${MAX_WAIT_SECS}s waiting for OAuth to stabilize - continuing to delete rhbk anyway, but check 'oc get co authentication' and 'oc get pods -n openshift-authentication'"
+    echo "WARNING: Timed out after ${MAX_WAIT_SECS}s waiting for OAuth/console to stabilize - continuing to delete rhbk anyway, but check 'oc get co authentication console', 'oc get pods -n openshift-authentication', and 'oc get pods -n openshift-console'"
     break
   fi
 done
