@@ -10,10 +10,12 @@ Readiness requires `Available=True`, `Progressing=False`, and `Degraded=False`.
 Missing resources or conditions do not count as ready. Persistent errors or an
 unhealthy HyperConverged instance fail the task when its retry budget is exhausted.
 
-* `ocp4_workload_openshift_virtualization_hco_wait_retries`: `120`
+* `ocp4_workload_openshift_virtualization_hco_wait_retries`: `240`
 * `ocp4_workload_openshift_virtualization_hco_wait_delay`: `10` seconds
 
-The default retry budget is approximately 20 minutes, plus API request duration.
+The default readiness retry budget is approximately 40 minutes, plus API request
+duration, preserving the longer recovery allowance from the main branch. HCO
+creation also retains its separate 40-retry, 15-second-delay budget.
 This role does not apply MachineConfigs or sequence external MachineConfig changes;
 callers managing such changes should wait for their rollout where appropriate.
 

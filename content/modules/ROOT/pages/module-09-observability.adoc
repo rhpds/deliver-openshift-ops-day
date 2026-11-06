@@ -114,8 +114,8 @@ You can define your own alerts for application namespaces. Here's an example tha
 [source,bash,role="execute"]
 ----
 cat <<EOF | oc apply -f -
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
+apiVersion: monitoring.openshift.io/v1
+kind: AlertingRule
 metadata:
   name: ops-track-alerts
   namespace: openshift-monitoring
@@ -134,11 +134,13 @@ spec:
 EOF
 ----
 
+`AlertingRule` is the supported way to add custom alerting rules to the platform Prometheus instance in `openshift-monitoring` - OpenShift reconciles it into a managed `PrometheusRule` behind the scenes, rather than you creating one directly.
+
 Verify the rule was created:
 
 [source,bash,role="execute"]
 ----
-oc get prometheusrule ops-track-alerts -n openshift-monitoring
+oc get alertingrule.monitoring.openshift.io ops-track-alerts -n openshift-monitoring
 ----
 
 The rule exists but nothing is triggering it. Let's fix that - deploy a pod that crash-loops so you can see the alert go from inactive to pending to firing:
@@ -467,22 +469,22 @@ fi
 
 === Enable the Logging UI
 
-The UIPlugin adds the **Observe -> Logs** view to the OpenShift console. Run the command below to enable it - it may take a few minutes to appear:
+The UIPlugin adds the **Observe -> Logs** view to the OpenShift console. Enabling it restarts the console, which can abruptly log you out without warning rather than showing a friendly "click Refresh" notification.
+
+**Log out of the OpenShift Console tab now, before running the command below.**
 
 [source,bash,role="execute"]
 ----
-cat <<EOF | oc apply -f -
-apiVersion: observability.openshift.io/v1alpha1
-kind: UIPlugin
-metadata:
-  name: logging
-spec:
-  type: Logging
-  logging:
-    lokiStack:
-      name: logging-loki
-EOF
+if curl -fsSL --retry 3 --retry-delay 2 -o /tmp/enable-logging-ui.sh {support_base_url}/09-observability/enable-logging-ui.sh; then
+  bash /tmp/enable-logging-ui.sh
+elif curl -fsSL --retry 3 --retry-delay 2 -o /tmp/enable-logging-ui.sh https://raw.githubusercontent.com/rhpds/deliver-openshift-ops-day/main/support/09-observability/enable-logging-ui.sh; then
+  bash /tmp/enable-logging-ui.sh
+else
+  echo "ERROR: Could not download enable-logging-ui.sh from the Showroom instance or GitHub. Check your network connection and re-run this command."
+fi
 ----
+
+**Do not log back into the Console tab until the script prints "it is now safe to log back into the console."**
 
 === Verify and View Logs
 
@@ -518,10 +520,7 @@ oc delete configmap audit-demo -n observability-demo
 
 You should see the logging operator, collector pods (one per node), and multiple Loki component pods all `Running`.
 
-After the UIPlugin is created, you may see a notification in the console:
-
-image::Loki_refresh.png[Web console update notification, link=self, window=blank]
-Click **Refresh** to reload the console with the new Logs view. This may log you out of the console - if so, log back in with:
+Once `enable-logging-ui.sh` has printed that it's safe, log back into the Console:
 
 * Username: `{openshift_cluster_admin_username}`
 * Password: `{openshift_cluster_admin_password}`
@@ -753,7 +752,7 @@ fi
 **What you learned:**
 
 * OpenShift's built-in Prometheus stack provides metrics and dashboards with no setup
-* How to create custom alerting rules with PrometheusRule and configure email notifications
+* How to create custom alerting rules with AlertingRule and configure email notifications
 * How to install and configure the full logging stack (Loki + Vector)
 * How to view and filter logs in the OpenShift console
 * How to deploy the OpenTelemetry tracing pipeline (Tempo + OTel Collector)

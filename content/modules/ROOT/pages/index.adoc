@@ -141,6 +141,8 @@ Administrator login credentials:
 
 In the top-left corner of the console, you'll see a perspective switcher dropdown. Click the dropdown and select **Core Platform**.
 
+NOTE: The OpenShift Lightspeed window may open automatically when the console loads. If it's covering part of the screen, click **minimize** on it before continuing.
+
 === Step 3: Dashboard Overview
 
 Once in the Core Platform perspective, you'll see the **Overview** dashboard under **Home -> Overview**.
@@ -202,7 +204,7 @@ image::observe-cluster-metrics-dashboard.png[Kubernetes Cluster Metrics Dashboar
 +
 [source,role="copypaste"]
 ----
-sum(rate(container_cpu_usage_seconds_total[5m])) by (namespace)
+sum(rate(container_cpu_usage_seconds_total{container!=""}[5m])) by (namespace)
 ----
 +
 3. Click **Run Queries**
@@ -402,7 +404,7 @@ Output:
 
 ----
 NAME      VERSION   AVAILABLE   PROGRESSING   SINCE   STATUS
-version   4.x       True        False         32m     Cluster version is 4.x
+version   5.x       True        False         32m     Cluster version is 5.x
 ----
 
 **View Available Upgrades (Console)**
@@ -437,7 +439,7 @@ Hundreds of operators ready to install - a mix of Red Hat, certified partner, an
 **Explore Software Catalog (Console)**
 
 1. Navigate to **Ecosystem → Software Catalog**
-2. You may need to select a project from the dropdown - if one is not already selected, choose **default**
+2. You may need to select a project from the dropdown - if one is not already selected, choose any project from the list (which one is selected doesn't affect what you see in this catalog)
 3. You'll see the unified software catalog with categories on the left:
    - **AI/Machine Learning** - Red Hat OpenShift AI, Open Data Hub
    - **CI/CD** - Red Hat OpenShift GitOps, Red Hat OpenShift Pipelines

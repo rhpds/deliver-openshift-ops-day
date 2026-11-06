@@ -52,6 +52,7 @@ class HyperConvergedReadinessTests(unittest.TestCase):
         tasks = yaml.safe_load((ROLE / 'tasks/workload.yml').read_text())
         workload = next(t['block'] for t in tasks if t['name'] == 'Run workload with failure capture')
         block = next(t['block'] for t in workload if t['name'] == 'Deploy and configure HyperConverged')
+        cls.creation = next(t for t in block if t['name'] == 'Create the HyperConverged instance')
         cls.task = next(t for t in block if t['name'] == 'Wait until HyperConverged is installed')
         virtctl = next(t['block'] for t in block if t['name'] == 'Install virtctl to bastion VM')
         cls.discovery = next(t for t in virtctl if t['name'].startswith('Get virtctl-clidownloads'))
@@ -131,8 +132,14 @@ class HyperConvergedReadinessTests(unittest.TestCase):
     def test_virtctl_link_discovery_fails_if_no_linux_link_appears(self):
         self.run_sequence([{'resources': []}], False, 3, task=self.discovery)
 
+    def test_main_branch_creation_retries_are_preserved(self):
+        self.assertEqual(self.creation['retries'], 40)
+        self.assertEqual(self.creation['delay'], 15)
+        self.assertEqual(self.creation['until'],
+                         self.creation['register'] + ' is succeeded')
+
     def test_default_retry_budget(self):
-        self.assertEqual(self.defaults[PREFIX + 'hco_wait_retries'], 120)
+        self.assertEqual(self.defaults[PREFIX + 'hco_wait_retries'], 240)
         self.assertEqual(self.defaults[PREFIX + 'hco_wait_delay'], 10)
         self.assertNotIn('wait', self.task['kubernetes.core.k8s_info'])
 

@@ -63,10 +63,24 @@
     - name: Deploy and configure HyperConverged
       when: ocp4_workload_openshift_virtualization_deploy_hyperconverged | bool
       block:
+      # The hco.kubevirt.io CRD has a conversion webhook (hco-webhook-service).
+      # If that pod isn't Ready when this request lands - e.g. during the
+      # cluster-wide pod churn a MachineConfigPool rollout causes on a compact
+      # cluster where masters double as workers - the service has zero
+      # endpoints and the API server returns a 500, which is otherwise fatal
+      # here. This usually self-heals within seconds, but when the operator's
+      # own CSV install lands right after a full master-pool reboot rollout,
+      # recovery can take much longer - confirmed live on cluster-sb4fr where
+      # HyperConverged didn't reach Available until ~34 minutes after creation.
+      # Retry budgets below are sized with headroom over that.
       - name: Create the HyperConverged instance
         kubernetes.core.k8s:
           state: present
           definition: "{{ lookup('template', 'hyperconverged.yaml.j2') }}"
+        register: _ocp4_workload_openshift_virtualization_hco_create
+        until: _ocp4_workload_openshift_virtualization_hco_create is succeeded
+        retries: 40
+        delay: 15
 
       - name: Wait until HyperConverged is installed
         kubernetes.core.k8s_info:

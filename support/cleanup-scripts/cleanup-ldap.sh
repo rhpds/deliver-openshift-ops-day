@@ -30,11 +30,20 @@ spec:
         name: htpasswd
 EOF
 
-# Remove LDAP secrets and config
-oc delete secret ldap-secret -n openshift-config --ignore-not-found
-oc delete configmap ca-config-map -n openshift-config --ignore-not-found
+echo "Waiting for OAuth operator to pick up the config change..."
+ELAPSED=0
+until [ "$(oc get deployment oauth-openshift -n openshift-authentication -o jsonpath='{.metadata.generation}' 2>/dev/null || echo "$GEN")" != "$GEN" ]; do
+  sleep 2; ELAPSED=$((ELAPSED+2))
+  [ $ELAPSED -ge 60 ] && echo "Warning: OAuth operator slow to pick up config change - continuing to wait below" && break
+done
 
-# Remove LDAP users, identities, and groups
+# Remove LDAP users, identities, and groups now. The ldap-secret and
+# ca-config-map are left in place until the OAuth rollout has stabilized
+# below - deleting them here races with the authentication-operator's synced
+# copies in openshift-authentication, which the still-rolling-out old
+# LDAP-configured oauth-openshift pod needs to mount. Pulling them out from
+# under that pod gets it killed with a FailedMount error and causes a brief
+# login outage until the new pod is up.
 oc delete user normaluser1 fancyuser1 fancyuser2 teamuser1 teamuser2 --ignore-not-found
 # Only the LDAP-provider identities - not --all, which would also delete
 # htpasswd:admin along with them and break admin's OAuth login until the
@@ -57,7 +66,7 @@ oc adm policy remove-cluster-role-from-group cluster-reader ose-fancy-dev 2>/dev
 # reach glauth while the rollout is in progress. Deleting glauth first (the
 # previous order) left a window where those still-running old pods got
 # connection failures against an already-deleted LDAP server.
-echo "Waiting for OAuth to fully stabilize before tearing down glauth - do NOT reload or log out of the OCP Console tab until this finishes."
+echo "Waiting for OAuth to fully stabilize before tearing down glauth - do NOT log back in to or reload the OCP Console tab until this finishes."
 REQUIRED_STABLE_SECS=30
 MAX_WAIT_SECS=600
 STABLE_FOR=0
@@ -96,9 +105,46 @@ while :; do
   fi
 done
 
-# Now safe to remove the LDAP server and test projects.
+# Now safe to remove the client secret/CA config, the LDAP server, and test projects.
+oc delete secret ldap-secret -n openshift-config --ignore-not-found
+oc delete configmap ca-config-map -n openshift-config --ignore-not-found
 echo "Deleting test projects and the glauth LDAP server - this can take a minute or two..."
 oc delete project app-dev app-test app-prod glauth --ignore-not-found --timeout=180s \
   || echo "WARNING: project deletion did not finish within 180s - it will keep terminating in the background, this is not a safety concern on its own"
+
+# "oc get co authentication" only reports the state of the oauth-openshift
+# Deployment itself - it says nothing about whether the public oauth and
+# console routes (which is what a real login/reload actually hits) have
+# caught up. Measured live: the operator can report fully stable while the
+# oauth route still returns brief connection failures for several more
+# seconds - exactly the window a login racing this script's "safe" message
+# would land in and freeze. Confirm the real routes are reachable too before
+# telling the attendee it's safe to log back in.
+wait_for_route_reachable() {
+  local url="$1" label="$2"
+  local required_ok=10 max_wait=120 ok_streak=0 elapsed=0
+  while :; do
+    local code
+    code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 3 "$url" 2>/dev/null || echo "000")
+    if [ "$code" = "200" ] || [ "$code" = "403" ]; then
+      ok_streak=$((ok_streak+1))
+    else
+      [ "$ok_streak" -gt 0 ] && echo "  $label returned $code - resetting reachability streak"
+      ok_streak=0
+    fi
+    [ "$ok_streak" -ge "$required_ok" ] && return 0
+    sleep 1; elapsed=$((elapsed+1))
+    if [ "$elapsed" -ge "$max_wait" ]; then
+      echo "WARNING: $label did not stay reachable for ${required_ok}s straight within ${max_wait}s - continuing anyway, but logging back in right now may still hit a transient failure"
+      return 1
+    fi
+  done
+}
+
+OAUTH_HOST=$(oc get route oauth-openshift -n openshift-authentication -o jsonpath='{.spec.host}' 2>/dev/null)
+CONSOLE_HOST=$(oc get route console -n openshift-console -o jsonpath='{.spec.host}' 2>/dev/null)
+echo "Confirming the oauth and console routes are actually reachable before declaring it safe to log back in..."
+[ -n "$OAUTH_HOST" ] && wait_for_route_reachable "https://${OAUTH_HOST}/healthz" "oauth route"
+[ -n "$CONSOLE_HOST" ] && wait_for_route_reachable "https://${CONSOLE_HOST}/" "console route"
 
 echo "Cleanup complete - it is now safe to continue to the next module"

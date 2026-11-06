@@ -39,6 +39,13 @@ EOF
 echo "Applying OAuth configuration..."
 oc apply -f $HOME/support/oauth-cluster.yaml
 
+echo "Waiting for OAuth operator to pick up the config change..."
+ELAPSED=0
+until [ "$(oc get deployment oauth-openshift -n openshift-authentication -o jsonpath='{.metadata.generation}' 2>/dev/null || echo "$GEN")" != "$GEN" ]; do
+  sleep 2; ELAPSED=$((ELAPSED+2))
+  [ $ELAPSED -ge 60 ] && echo "Warning: OAuth operator slow to pick up config change - continuing to wait below" && break
+done
+
 # The authentication operator applies this change in several stages (trust
 # bundle sync, cert rotation, etc.), and oauth-openshift can roll out more
 # than once in a row as a result. Declaring success after the first rollout
@@ -86,5 +93,40 @@ while :; do
     break
   fi
 done
+
+# "oc get co authentication" only reports the state of the oauth-openshift
+# Deployment itself - it says nothing about whether the public oauth and
+# console routes (which is what a real login/reload actually hits) have
+# caught up. Measured live: the operator can report fully stable while the
+# oauth route still returns brief connection failures for several more
+# seconds - exactly the window a login racing this script's "safe" message
+# would land in and freeze. Confirm the real routes are reachable too before
+# declaring success.
+wait_for_route_reachable() {
+  local url="$1" label="$2"
+  local required_ok=10 max_wait=120 ok_streak=0 elapsed=0
+  while :; do
+    local code
+    code=$(curl -sk -o /dev/null -w '%{http_code}' --max-time 3 "$url" 2>/dev/null || echo "000")
+    if [ "$code" = "200" ] || [ "$code" = "403" ]; then
+      ok_streak=$((ok_streak+1))
+    else
+      [ "$ok_streak" -gt 0 ] && echo "  $label returned $code - resetting reachability streak"
+      ok_streak=0
+    fi
+    [ "$ok_streak" -ge "$required_ok" ] && return 0
+    sleep 1; elapsed=$((elapsed+1))
+    if [ "$elapsed" -ge "$max_wait" ]; then
+      echo "WARNING: $label did not stay reachable for ${required_ok}s straight within ${max_wait}s - continuing anyway, but a login racing this window may still hit a transient failure"
+      return 1
+    fi
+  done
+}
+
+OAUTH_HOST=$(oc get route oauth-openshift -n openshift-authentication -o jsonpath='{.spec.host}' 2>/dev/null)
+CONSOLE_HOST=$(oc get route console -n openshift-console -o jsonpath='{.spec.host}' 2>/dev/null)
+echo "Confirming the oauth and console routes are actually reachable before declaring it safe to log in..."
+[ -n "$OAUTH_HOST" ] && wait_for_route_reachable "https://${OAUTH_HOST}/healthz" "oauth route"
+[ -n "$CONSOLE_HOST" ] && wait_for_route_reachable "https://${CONSOLE_HOST}/" "console route"
 
 echo "OAuth configuration applied and has been stable for ${REQUIRED_STABLE_SECS}s - it is now safe to log out and reload the console"
