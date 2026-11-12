@@ -39,11 +39,12 @@
         namespace: "{{ ocp4_workload_metallb_catalogsource_namespace }}"
       register: r_catalogsource
       until:
-        - r_catalogsource.resources | length > 0
+        - r_catalogsource is succeeded
+        - r_catalogsource.resources | default([]) | length > 0
         - r_catalogsource.resources[0].status.connectionState.lastObservedState is defined
         - r_catalogsource.resources[0].status.connectionState.lastObservedState == "READY"
-      retries: 30
-      delay: 10
+      retries: "{{ ocp4_workload_metallb_catalog_wait_retries }}"
+      delay: "{{ ocp4_workload_metallb_retry_delay }}"
       when: ocp4_workload_metallb_use_catalog_snapshot | default(false) | bool
 
     - name: Install MetalLB Operator
@@ -68,6 +69,10 @@
       kubernetes.core.k8s:
         state: present
         definition: "{{ lookup('file', 'metallb.yaml') }}"
+      register: _metallb_create
+      until: _metallb_create is succeeded
+      retries: "{{ ocp4_workload_metallb_create_retries }}"
+      delay: "{{ ocp4_workload_metallb_retry_delay }}"
 
     - name: Wait until MetalLB is installed
       kubernetes.core.k8s_info:
@@ -75,25 +80,41 @@
         kind: MetalLB
         name: metallb
         namespace: metallb-system
-        wait: true
-        wait_condition:
-          reason: Available
-          status: 'True'
-          type: Available
-        wait_sleep: 10
-        wait_timeout: 600
+      # Retry the API query itself when a webhook/API temporarily disappears.
+      register: _metallb_readiness
+      vars:
+        _metallb_conditions: >-
+          {{ (_metallb_readiness.resources | default([]) | first | default({}))
+             .get('status', {}).get('conditions', []) }}
+      until:
+        - _metallb_readiness is succeeded
+        - _metallb_readiness.resources | default([]) | length == 1
+        - >-
+          _metallb_conditions | selectattr('type', 'defined')
+          | selectattr('type', 'equalto', 'Available')
+          | selectattr('status', 'defined') | map(attribute='status') | list == ['True']
+      retries: "{{ ocp4_workload_metallb_readiness_retries }}"
+      delay: "{{ ocp4_workload_metallb_retry_delay }}"
 
     - name: Create the IPAddressPool instance
       when: ocp4_workload_metallb_enable_ipaddresspool | default(false)
       kubernetes.core.k8s:
         state: present
         template: ipaddresspool.yaml.j2
+      register: _metallb_ipaddresspool
+      until: _metallb_ipaddresspool is succeeded
+      retries: "{{ ocp4_workload_metallb_create_retries }}"
+      delay: "{{ ocp4_workload_metallb_retry_delay }}"
 
     - name: Create the L2Advertisement instance
       when: ocp4_workload_metallb_enable_l2advertisement | default(false)
       kubernetes.core.k8s:
         state: present
         template: l2advertisement.yaml.j2
+      register: _metallb_l2advertisement
+      until: _metallb_l2advertisement is succeeded
+      retries: "{{ ocp4_workload_metallb_create_retries }}"
+      delay: "{{ ocp4_workload_metallb_retry_delay }}"
 
 
   rescue:
@@ -102,6 +123,12 @@
         echo "====================================================================="
         echo "WORKLOAD FAILED: ocp4_workload_metallb"
         echo "====================================================================="
+        echo ""
+        echo "=== METALLB OLM STATE ==="
+        oc get subscription,installplan,csv -n metallb-system 2>/dev/null || true
+        echo ""
+        echo "=== CATALOG CONNECTIONS ==="
+        oc get catalogsource -A 2>/dev/null || true
         echo ""
         echo "=== NODE USAGE AT FAILURE ==="
         oc adm top nodes 2>/dev/null || echo "Metrics not available"
@@ -140,4 +167,9 @@
 
     - name: Fail with original error
       fail:
-        msg: "Workload ocp4_workload_metallb failed. See diagnostics above."
+        msg: >-
+          Workload ocp4_workload_metallb failed at
+          {{ 'a task with no_log enabled' if (ansible_failed_task.no_log | default(false) | bool)
+             else ansible_failed_task.name }}.
+          See the original task failure and OLM diagnostics above.
+          Raw failed results are deliberately not copied into this message.

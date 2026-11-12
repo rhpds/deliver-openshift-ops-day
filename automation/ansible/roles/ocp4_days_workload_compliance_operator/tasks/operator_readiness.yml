@@ -1,0 +1,106 @@
+---
+- name: Wait for Compliance OLM installation and workload readiness
+  block:
+    - name: Wait for Compliance Subscription to resolve a CSV
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: Subscription
+        name: compliance-operator
+        namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+      register: r_subscription
+      vars:
+        _compliance_subscription_status: >-
+          {{ (r_subscription.resources | default([]) | first | default({})).get('status', {}) }}
+      until:
+        - r_subscription is succeeded
+        - r_subscription.resources | default([]) | length == 1
+        - _compliance_subscription_status.get('currentCSV', '') | length > 0
+      retries: "{{ ocp4_days_workload_compliance_operator_install_retries }}"
+      delay: "{{ ocp4_days_workload_compliance_operator_retry_delay }}"
+
+    # Query the CSV selected by THIS Subscription, not a stale succeeded CSV
+    # left behind by a previous installation or upgrade.
+    - name: Wait for Compliance CSV to succeed
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        name: "{{ r_subscription.resources[0].status.currentCSV }}"
+        namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+      register: r_csv
+      vars:
+        _compliance_csv_status: >-
+          {{ (r_csv.resources | default([]) | first | default({})).get('status', {}) }}
+      until:
+        - r_csv is succeeded
+        - r_csv.resources | default([]) | length == 1
+        - _compliance_csv_status.get('phase', '') == 'Succeeded'
+      retries: "{{ ocp4_days_workload_compliance_operator_install_retries }}"
+      delay: "{{ ocp4_days_workload_compliance_operator_retry_delay }}"
+
+    - name: Wait for Compliance Operator deployment to be ready
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: compliance-operator
+        namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+      register: r_deployment
+      vars:
+        _compliance_deployment: "{{ r_deployment.resources | default([]) | first | default({}) }}"
+        _compliance_deployment_status: "{{ _compliance_deployment.get('status', {}) }}"
+      until:
+        - r_deployment is succeeded
+        - r_deployment.resources | default([]) | length == 1
+        - _compliance_deployment_status.get('observedGeneration', 0) | int >= _compliance_deployment.get('metadata', {}).get('generation', 1) | int
+        - _compliance_deployment_status.get('readyReplicas', 0) | int >= 1
+        - _compliance_deployment_status.get('availableReplicas', 0) | int >= 1
+      retries: "{{ ocp4_days_workload_compliance_operator_readiness_retries }}"
+      delay: "{{ ocp4_days_workload_compliance_operator_retry_delay }}"
+
+  rescue:
+    # Print only selected public OLM state, never complete module results or
+    # arbitrary error messages (which may contain credentials/request bodies).
+    - name: Collect Compliance OLM state after a readiness failure
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: "{{ item }}"
+        namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+      loop:
+        - Subscription
+        - InstallPlan
+        - ClusterServiceVersion
+      register: _compliance_olm_diagnostics
+      # Suppress raw resources/API errors; the next task prints an allowlist.
+      no_log: true
+      ignore_errors: true
+
+    - name: Report Compliance OLM state without dumping resources
+      ansible.builtin.debug:
+        msg:
+          kind: "{{ item.0.item }}"
+          name: "{{ item.1.metadata.name }}"
+          state: "{{ item.1.status.state | default('unknown') }}"
+          phase: "{{ item.1.status.phase | default('unknown') }}"
+          reason: "{{ item.1.status.reason | default('unknown') }}"
+          approval: "{{ item.1.spec.approval | default(item.1.spec.installPlanApproval | default('unknown')) }}"
+          approved: "{{ item.1.spec.approved | default('unknown') }}"
+          currentCSV: "{{ item.1.status.currentCSV | default('unknown') }}"
+          installedCSV: "{{ item.1.status.installedCSV | default('unknown') }}"
+          source: "{{ item.1.spec.source | default('unknown') }}"
+          sourceNamespace: "{{ item.1.spec.sourceNamespace | default('unknown') }}"
+          conditionTypes: "{{ item.1.status.conditions | default([]) | map(attribute='type', default='unknown') | list }}"
+          conditionStatuses: "{{ item.1.status.conditions | default([]) | map(attribute='status', default='unknown') | list }}"
+          conditionReasons: "{{ item.1.status.conditions | default([]) | map(attribute='reason', default='unknown') | list }}"
+      loop: "{{ _compliance_olm_diagnostics.results | default([]) | subelements('resources', skip_missing=True) }}"
+      loop_control:
+        label: "{{ item.0.item }}/{{ item.1.metadata.name }}"
+      ignore_errors: true
+
+    - name: Fail Compliance readiness without hiding the failed stage
+      ansible.builtin.fail:
+        msg: >-
+          Compliance Operator readiness failed at
+          {{ 'a task with no_log enabled' if (ansible_failed_task.no_log | default(false) | bool)
+             else ansible_failed_task.name }}.
+          Check the Subscription, InstallPlan approval, CSV and catalog health;
+          a Subscription alone does not mean the operator is installed.
+          See the original task failure above. No approval policy was changed.

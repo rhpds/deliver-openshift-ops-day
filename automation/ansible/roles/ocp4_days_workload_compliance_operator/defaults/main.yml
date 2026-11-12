@@ -16,5 +16,12 @@ ocp4_days_workload_compliance_operator_catalog_snapshot_image_tag: ""
 # Automatic install plan approval
 ocp4_days_workload_compliance_operator_automatic_install_plan_approval: true
 
+# Bounded polling; API requests themselves are retried during transient outages.
+# Subscription resolution and CSV readiness each have a ~20 minute budget.
+ocp4_days_workload_compliance_operator_api_retries: 30
+ocp4_days_workload_compliance_operator_install_retries: 120
+ocp4_days_workload_compliance_operator_readiness_retries: 60
+ocp4_days_workload_compliance_operator_retry_delay: 10
+
 # Deploy ScanSettingBinding for default scans (optional)
 ocp4_days_workload_compliance_operator_deploy_default_scans: false

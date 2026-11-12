@@ -22,18 +22,21 @@
   retries: 10
   delay: 5
 
-- name: Check if compliance operator is already installed (e.g. by ACM policy)
+- name: Check for an existing compliance operator Subscription (e.g. by ACM policy)
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1alpha1
     kind: Subscription
     name: compliance-operator
     namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
   register: r_existing_subscription
+  until: r_existing_subscription is succeeded
+  retries: "{{ ocp4_days_workload_compliance_operator_api_retries }}"
+  delay: "{{ ocp4_days_workload_compliance_operator_retry_delay }}"
 
 - name: DEBUG - Existing installation check
   ansible.builtin.debug:
     msg: >-
-      {{ 'Compliance operator already installed (likely via ACM policy) — skipping install_operator'
+      {{ 'Existing Subscription found — preserving its ownership and verifying installation below'
       if r_existing_subscription.resources | length > 0
       else 'No existing installation found — installing via install_operator role' }}
 
@@ -51,69 +54,18 @@
     install_operator_namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
     install_operator_channel: "{{ ocp4_days_workload_compliance_operator_channel }}"
     install_operator_automatic_install_plan_approval: "{{ ocp4_days_workload_compliance_operator_automatic_install_plan_approval }}"
-    install_operator_use_catalog_snapshot: "{{ ocp4_days_workload_compliance_operator_use_catalog_snapshot }}"
+    install_operator_catalogsource_setup: "{{ ocp4_days_workload_compliance_operator_use_catalog_snapshot }}"
     install_operator_catalogsource_name: "{{ ocp4_days_workload_compliance_operator_catalogsource_name }}"
     install_operator_catalogsource_image: "{{ ocp4_days_workload_compliance_operator_catalog_snapshot_image }}"
     install_operator_catalogsource_image_tag: "{{ ocp4_days_workload_compliance_operator_catalog_snapshot_image_tag }}"
-    # On busy compact clusters the CSV can take >15 min to reach Succeeded,
-    # exceeding the upstream role's timeout. Let it fail silently — our own
-    # deployment wait (below) gives it another 10 minutes to come up.
-    install_operator_install_csv_ignore_error: true
+    # Do not mask catalog resolution/CSV installation failures.
+    install_operator_install_csv_ignore_error: false
 
-# From here on, wait for the operator to be ready regardless of how it was installed.
-
-- name: Get Subscription status
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: Subscription
-    name: compliance-operator
-    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
-  register: r_subscription
-
-- name: DEBUG - Subscription status
-  ansible.builtin.debug:
-    msg:
-      - "Subscription found: {{ r_subscription.resources | length > 0 }}"
-      - "Installed CSV: {{ r_subscription.resources[0].status.installedCSV | default('not yet') }}"
-      - "State: {{ r_subscription.resources[0].status.state | default('unknown') }}"
-  when: r_subscription.resources | length > 0
-
-- name: Wait for Compliance Operator deployment to be ready
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    kind: Deployment
-    name: compliance-operator
-    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
-  register: r_deployment
-  until:
-    - r_deployment.resources | length > 0
-    - r_deployment.resources[0].status.readyReplicas is defined
-    - r_deployment.resources[0].status.readyReplicas | int >= 1
-  retries: 60
-  delay: 10
-
-- name: DEBUG - Deployment status
-  ansible.builtin.debug:
-    msg:
-      - "Deployment ready replicas: {{ r_deployment.resources[0].status.readyReplicas | default(0) }}"
-      - "Deployment available: {{ r_deployment.resources[0].status.availableReplicas | default(0) }}"
-
-- name: Get CSV status
-  kubernetes.core.k8s_info:
-    api_version: operators.coreos.com/v1alpha1
-    kind: ClusterServiceVersion
-    namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
-    label_selectors:
-      - "operators.coreos.com/compliance-operator.openshift-compliance"
-  register: r_csv
-
-- name: DEBUG - CSV status
-  ansible.builtin.debug:
-    msg:
-      - "CSV Name: {{ r_csv.resources[0].metadata.name | default('not found') }}"
-      - "CSV Phase: {{ r_csv.resources[0].status.phase | default('unknown') }}"
-      - "CSV Version: {{ r_csv.resources[0].spec.version | default('unknown') }}"
-  when: r_csv.resources | length > 0
+# A Subscription is intent, not proof of installation. This gate also handles
+# subscriptions owned by ACM without creating a second OperatorGroup or
+# changing their channel, catalog, or InstallPlan approval policy.
+- name: Verify Compliance Operator installation and deployment
+  ansible.builtin.include_tasks: operator_readiness.yml
 
 - name: Wait for ProfileBundle CRDs to be available
   kubernetes.core.k8s_info:
@@ -121,9 +73,11 @@
     kind: CustomResourceDefinition
     name: profilebundles.compliance.openshift.io
   register: r_crd
-  until: r_crd.resources | length > 0
-  retries: 30
-  delay: 10
+  until:
+    - r_crd is succeeded
+    - r_crd.resources | default([]) | length > 0
+  retries: "{{ ocp4_days_workload_compliance_operator_api_retries }}"
+  delay: "{{ ocp4_days_workload_compliance_operator_retry_delay }}"
 
 - name: DEBUG - ProfileBundle CRD available
   ansible.builtin.debug:
@@ -136,10 +90,11 @@
     namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
   register: r_profilebundles
   until:
-    - r_profilebundles.resources | length >= 2
-    - r_profilebundles.resources | selectattr('status.dataStreamStatus', 'defined') | selectattr('status.dataStreamStatus', 'equalto', 'VALID') | list | length >= 2
-  retries: 60
-  delay: 10
+    - r_profilebundles is succeeded
+    - r_profilebundles.resources | default([]) | length >= 2
+    - r_profilebundles.resources | default([]) | selectattr('status.dataStreamStatus', 'defined') | selectattr('status.dataStreamStatus', 'equalto', 'VALID') | list | length >= 2
+  retries: "{{ ocp4_days_workload_compliance_operator_readiness_retries }}"
+  delay: "{{ ocp4_days_workload_compliance_operator_retry_delay }}"
 
 - name: DEBUG - ProfileBundle status
   ansible.builtin.debug:
