@@ -482,6 +482,11 @@ else
 fi
 ----
 
+[NOTE]
+====
+If the Console tab freezes or becomes unresponsive, open an **incognito/private** browser window, navigate to the console URL, and force-reload: **Ctrl+Shift+R** (Windows/Linux) or **Cmd+Shift+R** (Mac). Log in from there and continue.
+====
+
 **Do not log back into the Console tab until the script prints "it is now safe to log back into the console."**
 
 === Verify and View Logs
@@ -668,6 +673,11 @@ else
 fi
 ----
 
+[NOTE]
+====
+If the Console tab freezes or becomes unresponsive, open an **incognito/private** browser window, navigate to the console URL, and force-reload: **Ctrl+Shift+R** (Windows/Linux) or **Cmd+Shift+R** (Mac). Log in from there and continue.
+====
+
 **Do not log back into the Console tab until the script prints "it is now safe to log back into the console."**
 
 Once `enable-tracing-ui.sh` has printed that it's safe, log back in:
@@ -746,6 +756,11 @@ else
   echo "ERROR: Could not download cleanup-observability.sh from GitHub. Check your network connection and re-run this command."
 fi
 ----
+
+[NOTE]
+====
+If the Console tab freezes or becomes unresponsive, open an **incognito/private** browser window, navigate to the console URL, and force-reload: **Ctrl+Shift+R** (Windows/Linux) or **Cmd+Shift+R** (Mac). Log in from there and continue.
+====
 
 === Summary
 

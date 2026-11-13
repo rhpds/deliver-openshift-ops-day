@@ -210,6 +210,11 @@ else
 fi
 ----
 
+[NOTE]
+====
+If the Console tab freezes or becomes unresponsive, open an **incognito/private** browser window, navigate to the console URL, and force-reload: **Ctrl+Shift+R** (Windows/Linux) or **Cmd+Shift+R** (Mac). Log in from there and continue.
+====
+
 The key line is `claims.groups: [groups]` - this tells OpenShift to read the `groups` claim from the ID token and create OpenShift groups from it. This is why the script added the groups mapper to the OIDC client.
 
 The script above waits for the OAuth rollout to complete *and* to stay stable for 30 seconds before printing `OAuth is live with rhbk provider`. Don't touch the **OCP Console** tab until you see that message - keep reading below for why.
@@ -361,6 +366,11 @@ else
   echo "ERROR: Could not download cleanup-oidc.sh from GitHub. Check your network connection and re-run this command."
 fi
 ----
+
+[NOTE]
+====
+If the Console tab freezes or becomes unresponsive, open an **incognito/private** browser window, navigate to the console URL, and force-reload: **Ctrl+Shift+R** (Windows/Linux) or **Cmd+Shift+R** (Mac). Log in from there and continue.
+====
 
 **Do not reload either Console tab (or log back in) before the script prints "Cleanup complete...".**
 
