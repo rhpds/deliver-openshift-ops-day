@@ -15,6 +15,12 @@
         - r_subscription is succeeded
         - r_subscription.resources | default([]) | length == 1
         - _compliance_subscription_status.get('currentCSV', '') | length > 0
+        - >-
+          _compliance_subscription_status.get('conditions', [])
+          | selectattr('type', 'defined')
+          | selectattr('type', 'in', ['ResolutionFailed', 'InstallPlanFailed'])
+          | selectattr('status', 'defined') | selectattr('status', 'equalto', 'True')
+          | list | length == 0
       retries: "{{ ocp4_days_workload_compliance_operator_install_retries }}"
       delay: "{{ ocp4_days_workload_compliance_operator_retry_delay }}"
 

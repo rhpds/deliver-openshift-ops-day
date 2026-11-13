@@ -82,12 +82,24 @@ class OperatorResilienceTests(unittest.TestCase):
         cls.defaults = {**read(COMPLIANCE / 'defaults/main.yml'),
                         **read(METALLB / 'defaults/main.yml')}
 
-    def run_tasks(self, tasks, sequences, success=True, extra_vars=None):
+    def run_tasks(self, tasks, sequences, success=True, extra_vars=None, upstream_task=None):
         with tempfile.TemporaryDirectory(prefix='ops-operator-tests-') as d:
             tmp = Path(d)
             (tmp / 'library').mkdir()
             (tmp / 'library/api_stub.py').write_text(STUB)
             (tmp / 'sequences.json').write_text(json.dumps(sequences))
+            if upstream_task is not None:
+                # Execute a real include_role/rescue with the upstream task's
+                # action/name/register shape, not an injected failed-task dict.
+                modules = tmp / 'collections/ansible_collections/kubernetes/core/plugins/modules'
+                modules.mkdir(parents=True)
+                (modules / 'k8s_info.py').write_text(STUB)
+                role_tasks = tmp / 'roles/install_operator/tasks'
+                role_tasks.mkdir(parents=True)
+                task = copy.deepcopy(upstream_task)
+                task['kubernetes.core.k8s_info'].update(
+                    sequence_file=str(tmp / 'sequences.json'), state_file=str(tmp / 'state.json'))
+                (role_tasks / 'main.yml').write_text(yaml.safe_dump([task], sort_keys=False))
             variables = dict(self.defaults)
             # Keep retry counts finite and tests fast; production tasks retain
             # their real until/register/when expressions and variable wiring.
@@ -110,17 +122,20 @@ class OperatorResilienceTests(unittest.TestCase):
                             'sequence_file': str(tmp / 'sequences.json'),
                             'state_file': str(tmp / 'state.json'),
                         }
-                if task.get('ansible.builtin.include_tasks') == 'operator_readiness.yml':
-                    # Execute the production include and rescue, not a hand-built
-                    # imitation of the Compliance installation workflow.
-                    included = tmp / 'operator_readiness.yml'
+                includes = {'operator_readiness.yml': COMPLIANCE,
+                            'install_compliance.yml': COMPLIANCE,
+                            'install_metallb.yml': METALLB}
+                filename = task.get('ansible.builtin.include_tasks')
+                if filename in includes:
+                    # Execute production includes/rescue, never an imitation.
+                    included = tmp / filename
                     included.write_text(yaml.safe_dump([
-                        stub(t) for t in read(COMPLIANCE / 'tasks/operator_readiness.yml')
+                        stub(t) for t in read(includes[filename] / 'tasks' / filename)
                     ], sort_keys=False))
                     task['ansible.builtin.include_tasks'] = str(included)
                 # Model installation invocation only; never run the upstream
                 # role in an offline test. Production when/vars are preserved.
-                if 'ansible.builtin.include_role' in task:
+                if 'ansible.builtin.include_role' in task and upstream_task is None:
                     task.pop('ansible.builtin.include_role')
                     task['api_stub'] = {
                         'kind': 'Install', 'sequence_file': str(tmp / 'sequences.json'),
@@ -135,7 +150,9 @@ class OperatorResilienceTests(unittest.TestCase):
             (tmp / 'play.yml').write_text(yaml.safe_dump(play, sort_keys=False))
             env = dict(os.environ, ANSIBLE_LIBRARY=str(tmp / 'library'),
                        ANSIBLE_LOCAL_TEMP=str(tmp / 'local'),
-                       ANSIBLE_REMOTE_TEMP=str(tmp / 'remote'), ANSIBLE_NOCOLOR='1')
+                       ANSIBLE_REMOTE_TEMP=str(tmp / 'remote'), ANSIBLE_NOCOLOR='1',
+                       ANSIBLE_ROLES_PATH=str(tmp / 'roles'),
+                       ANSIBLE_COLLECTIONS_PATH=str(tmp / 'collections'))
             p = subprocess.run([sys.executable, '-m', 'ansible.cli.playbook',
                                 '-i', 'localhost,', str(tmp / 'play.yml')], cwd=tmp,
                                env=env, capture_output=True, text=True, timeout=60)
@@ -192,9 +209,10 @@ class OperatorResilienceTests(unittest.TestCase):
                     'Subscription': [subscription() if exists else resources()],
                 })
                 self.assertEqual(state['counts'].get('Install', 0), 0 if exists else 1)
-        self.assertIs(install['vars']['install_operator_install_csv_ignore_error'], False)
-        self.assertIn('install_operator_catalogsource_setup', install['vars'])
-        self.assertNotIn('install_operator_use_catalog_snapshot', install['vars'])
+        installer = read(COMPLIANCE / 'tasks/install_compliance.yml')[0]['block'][0]
+        self.assertIs(installer['vars']['install_operator_install_csv_ignore_error'], False)
+        self.assertIn('install_operator_catalogsource_setup', installer['vars'])
+        self.assertNotIn('install_operator_use_catalog_snapshot', installer['vars'])
 
     def test_metallb_readiness_recovers_from_transient_api_and_empty_results(self):
         task = self.metal_task('Wait until MetalLB is installed')
@@ -308,8 +326,88 @@ class OperatorResilienceTests(unittest.TestCase):
         state, _ = self.run_tasks([task], {'ProfileBundle': [invalid]}, False)
         self.assertEqual(state['counts']['ProfileBundle'], 3)
 
+    def test_slow_installer_csv_gets_bounded_local_grace_in_both_roles(self):
+        upstream = {'name': 'Wait until CSV is installed ({{ install_operator_name }})',
+                    'kubernetes.core.k8s_info': {'kind': 'ClusterServiceVersion'},
+                    'register': 'r_csv'}
+        for rolefile in ['install_compliance.yml', 'install_metallb.yml']:
+            with self.subTest(rolefile=rolefile):
+                tasks = [{'ansible.builtin.include_tasks': rolefile}]
+                if rolefile == 'install_compliance.yml':
+                    tasks += self.readiness
+                state, out = self.run_tasks(tasks, {
+                    'ClusterServiceVersion': [{'failed': True, 'msg': 'CSV wait exhausted'}, csv()],
+                    'Subscription': [subscription()], 'Deployment': [deployment()],
+                }, upstream_task=upstream)
+                self.assertEqual(state['counts']['ClusterServiceVersion'], 2)
+                self.assertIn('finite', out)
+
+    def test_installer_grace_rejects_configuration_and_permission_failures(self):
+        for rolefile in ['install_compliance.yml', 'install_metallb.yml']:
+            for name, message, status in [
+                ('Create operator subscription', 'invalid configuration', 0),
+                ('Wait until CSV is installed', 'Forbidden', 0),
+                ('Wait until CSV is installed', 'access denied', 403),
+                ('Wait until CSV is installed', 'Unauthorized', 401),
+            ]:
+                upstream = {'name': name, 'kubernetes.core.k8s_info': {
+                    'kind': 'ClusterServiceVersion'}, 'register': 'r_csv'}
+                with self.subTest(rolefile=rolefile, name=name, status=status):
+                    state, _ = self.run_tasks([{'ansible.builtin.include_tasks': rolefile}], {
+                        'ClusterServiceVersion': [{'failed': True, 'msg': message, 'status': status}],
+                    }, False, upstream_task=upstream)
+                    self.assertNotIn('Subscription', state['counts'])
+                    self.assertEqual(state['counts']['ClusterServiceVersion'], 1)
+
+    def test_grace_never_turns_persistent_csv_failure_into_success(self):
+        upstream = {'name': 'Wait until CSV is installed',
+                    'kubernetes.core.k8s_info': {'kind': 'ClusterServiceVersion'},
+                    'register': 'r_csv'}
+        for rolefile in ['install_compliance.yml', 'install_metallb.yml']:
+            with self.subTest(rolefile=rolefile):
+                tasks = [{'ansible.builtin.include_tasks': rolefile}]
+                if rolefile == 'install_compliance.yml':
+                    tasks += self.readiness
+                state, _ = self.run_tasks(tasks, {
+                    'ClusterServiceVersion': [{'failed': True, 'msg': 'CSV timeout'}, csv('Failed')],
+                    'Subscription': [subscription()],
+                }, False, upstream_task=upstream)
+                self.assertEqual(state['counts']['ClusterServiceVersion'], 4)
+                self.assertNotIn('Deployment', state['counts'])
+
+    def test_metallb_csv_gate_precedes_resource_creation(self):
+        tasks = [{'ansible.builtin.include_tasks': 'install_metallb.yml'},
+                 self.metal_task('Create the MetalLB instance')]
+        state, _ = self.run_tasks(tasks, {
+            'Subscription': [subscription()], 'ClusterServiceVersion': [csv('Failed')],
+        }, False)
+        self.assertNotIn('Create', state['counts'])
+
+    def test_subscription_failure_cannot_be_hidden_by_an_old_current_csv(self):
+        metal_gate = read(METALLB / 'tasks/install_metallb.yml')[1]
+        for gate in [self.readiness[0], metal_gate]:
+            for kind in ['ResolutionFailed', 'InstallPlanFailed']:
+                failed = subscription()
+                failed['resources'][0]['status']['conditions'] = [{'type': kind, 'status': 'True'}]
+                with self.subTest(gate=gate['name'], kind=kind):
+                    state, _ = self.run_tasks([gate], {'Subscription': [failed]}, False)
+                    self.assertEqual(state['counts']['Subscription'], 3)
+
+    def test_subscription_resolution_can_recover_without_reinstallation(self):
+        failed = subscription()
+        failed['resources'][0]['status']['conditions'] = [
+            {'type': 'ResolutionFailed', 'status': 'True'}]
+        for gate in [self.readiness[0], read(METALLB / 'tasks/install_metallb.yml')[1]]:
+            with self.subTest(gate=gate['name']):
+                state, _ = self.run_tasks([gate], {'Subscription': [failed, subscription()]})
+                self.assertEqual(state['counts']['Subscription'], 2)
+                self.assertNotIn('Install', state['counts'])
+
     def test_default_budgets_and_no_suppressed_readiness_failures(self):
-        self.assertEqual(self.defaults['ocp4_workload_metallb_readiness_retries'], 60)
+        self.assertEqual(self.defaults['ocp4_workload_metallb_catalog_wait_retries'], 120)
+        self.assertEqual(self.defaults['ocp4_workload_metallb_install_retries'], 120)
+        self.assertEqual(self.defaults['ocp4_workload_metallb_readiness_retries'], 120)
+        self.assertEqual(self.defaults['ocp4_days_workload_compliance_operator_readiness_retries'], 120)
         self.assertEqual(self.defaults['ocp4_days_workload_compliance_operator_install_retries'], 120)
         for task in self.readiness:
             self.assertNotIn('ignore_errors', task)

@@ -1,0 +1,83 @@
+---
+- name: Install MetalLB with a local CSV convergence grace period
+  block:
+    - name: Invoke MetalLB installer
+      ansible.builtin.include_role:
+        name: install_operator
+      vars:
+        install_operator_action: install
+        install_operator_name: metallb-operator
+        install_operator_namespace: metallb-system
+        install_operator_manage_namespaces: []
+        install_operator_channel: "{{ ocp4_workload_metallb_channel }}"
+        install_operator_catalog: redhat-operators
+        install_operator_automatic_install_plan_approval: "{{ ocp4_workload_metallb_automatic_install_plan_approval | default(true) }}"
+        install_operator_starting_csv: "{{ ocp4_workload_metallb_starting_csv }}"
+        install_operator_catalogsource_setup: "{{ ocp4_workload_metallb_use_catalog_snapshot | default(false) }}"
+        install_operator_catalogsource_name: "{{ ocp4_workload_metallb_catalogsource_name | default('') }}"
+        install_operator_catalogsource_namespace: "{{ ocp4_workload_metallb_catalogsource_namespace | default('metallb-system') }}"
+        install_operator_catalogsource_image: "{{ ocp4_workload_metallb_catalog_snapshot_image | default('') }}"
+        install_operator_catalogsource_image_tag: "{{ ocp4_workload_metallb_catalog_snapshot_image_tag | default('') }}"
+        install_operator_install_csv_ignore_error: false
+
+  rescue:
+    - name: Only defer an installer CSV convergence timeout
+      ansible.builtin.assert:
+        that:
+          - ansible_failed_task.action in ['kubernetes.core.k8s_info', 'k8s_info']
+          - ansible_failed_task.name is match('Wait until CSV is installed')
+          - ansible_failed_task.register == 'r_csv'
+          - ansible_failed_result.status | default(0) | int not in [401, 403]
+          - not (ansible_failed_result.msg | default('') is search('(?i)forbidden|unauthorized|permission denied'))
+        quiet: true
+        fail_msg: >-
+          MetalLB installer failed before safe CSV convergence recovery.
+          See the original task failure; configuration, approval and permission
+          errors are not suppressed or retried by the local readiness gate.
+
+    - name: Explain the bounded MetalLB CSV grace period
+      ansible.builtin.debug:
+        msg: >-
+          The installer's CSV wait expired. Continuing with the mandatory local
+          Subscription/CSV checks before MetalLB CR creation. Their finite
+          retry budgets still fail provisioning if installation cannot converge.
+
+- name: Wait for MetalLB Subscription to resolve a CSV
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: metallb-operator
+    namespace: metallb-system
+  register: _metallb_subscription
+  vars:
+    _metallb_subscription_status: >-
+      {{ (_metallb_subscription.resources | default([]) | first | default({})).get('status', {}) }}
+  until:
+    - _metallb_subscription is succeeded
+    - _metallb_subscription.resources | default([]) | length == 1
+    - _metallb_subscription_status.get('currentCSV', '') | length > 0
+    - >-
+      _metallb_subscription_status.get('conditions', [])
+      | selectattr('type', 'defined')
+      | selectattr('type', 'in', ['ResolutionFailed', 'InstallPlanFailed'])
+      | selectattr('status', 'defined') | selectattr('status', 'equalto', 'True')
+      | list | length == 0
+  retries: "{{ ocp4_workload_metallb_install_retries }}"
+  delay: "{{ ocp4_workload_metallb_retry_delay }}"
+
+- name: Wait for MetalLB CSV to succeed
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ _metallb_subscription.resources[0].status.currentCSV }}"
+    namespace: metallb-system
+  register: _metallb_csv
+  vars:
+    _metallb_csv_status: >-
+      {{ (_metallb_csv.resources | default([]) | first | default({})).get('status', {}) }}
+  until:
+    - _metallb_csv is succeeded
+    - _metallb_csv.resources | default([]) | length == 1
+    - _metallb_csv_status.get('phase', '') == 'Succeeded'
+  retries: "{{ ocp4_workload_metallb_install_retries }}"
+  delay: "{{ ocp4_workload_metallb_retry_delay }}"

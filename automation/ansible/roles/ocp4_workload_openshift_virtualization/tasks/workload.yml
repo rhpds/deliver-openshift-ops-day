@@ -281,4 +281,9 @@
 
     - name: Fail with original error
       fail:
-        msg: "Workload ocp4_workload_openshift_virtualization failed. See diagnostics above."
+        msg: >-
+          Workload ocp4_workload_openshift_virtualization failed at
+          {{ 'a task with no_log enabled' if (ansible_failed_task.no_log | default(false) | bool)
+             else ansible_failed_task.name }}.
+          See the original task failure and diagnostics above.
+          Raw failed results are deliberately not copied into this message.

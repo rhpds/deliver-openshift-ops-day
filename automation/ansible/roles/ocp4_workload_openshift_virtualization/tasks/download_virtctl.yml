@@ -32,18 +32,43 @@
       fail_msg: "The virtctl API fallback requires openshift_api_url and openshift_api_key."
     no_log: true
 
+  # Route hosts are not resource names: the generated host normally contains
+  # both route name and namespace, and custom hosts need not resemble either.
   - name: Find the virtctl route backend
     kubernetes.core.k8s_info:
       api_version: route.openshift.io/v1
       kind: Route
-      name: "{{ (_ocp4_workload_openshift_virtualization_virtctl_url | urlsplit('hostname')).split('.')[0] }}"
       namespace: openshift-cnv
-    register: r_virtctl_route
+    register: _virtctl_route_query
+    vars:
+      _virtctl_matching_routes: >-
+        {{ _virtctl_route_query.resources | default([])
+           | selectattr('spec.host', 'defined')
+           | selectattr('spec.host', 'equalto',
+               _ocp4_workload_openshift_virtualization_virtctl_url | urlsplit('hostname'))
+           | list }}
     until:
-    - r_virtctl_route is succeeded
-    - r_virtctl_route.resources | default([]) | length == 1
-    retries: "{{ ocp4_workload_openshift_virtualization_virtctl_download_retries }}"
-    delay: "{{ ocp4_workload_openshift_virtualization_virtctl_download_delay }}"
+    - _virtctl_route_query is succeeded
+    - _virtctl_matching_routes | length == 1
+    retries: "{{ ocp4_workload_openshift_virtualization_virtctl_backend_wait_retries }}"
+    delay: "{{ ocp4_workload_openshift_virtualization_virtctl_backend_wait_delay }}"
+
+  - name: Select the Route matching the advertised virtctl hostname
+    ansible.builtin.set_fact:
+      r_virtctl_route:
+        resources: >-
+          {{ _virtctl_route_query.resources
+             | selectattr('spec.host', 'defined')
+             | selectattr('spec.host', 'equalto',
+                 _ocp4_workload_openshift_virtualization_virtctl_url | urlsplit('hostname'))
+             | list }}
+
+  - name: Require a Service backend for the virtctl route
+    ansible.builtin.assert:
+      that:
+      - r_virtctl_route.resources[0].spec.to.kind | default('Service') == 'Service'
+      - r_virtctl_route.resources[0].spec.to.name | default('') | length > 0
+      fail_msg: "The advertised virtctl route must target a Service in openshift-cnv."
 
   - name: Find the virtctl download service
     kubernetes.core.k8s_info:
@@ -55,8 +80,30 @@
     until:
     - r_virtctl_service is succeeded
     - r_virtctl_service.resources | default([]) | length == 1
-    retries: "{{ ocp4_workload_openshift_virtualization_virtctl_download_retries }}"
-    delay: "{{ ocp4_workload_openshift_virtualization_virtctl_download_delay }}"
+    - r_virtctl_service.resources[0].spec.ports | default([]) | length > 0
+    retries: "{{ ocp4_workload_openshift_virtualization_virtctl_backend_wait_retries }}"
+    delay: "{{ ocp4_workload_openshift_virtualization_virtctl_backend_wait_delay }}"
+
+  - name: Wait for a ready virtctl download backend
+    kubernetes.core.k8s_info:
+      api_version: discovery.k8s.io/v1
+      kind: EndpointSlice
+      namespace: openshift-cnv
+      label_selectors:
+      - "kubernetes.io/service-name={{ r_virtctl_service.resources[0].metadata.name }}"
+    register: _virtctl_endpoint_slices
+    vars:
+      _virtctl_ready_addresses: >-
+        {{ _virtctl_endpoint_slices.resources | default([])
+           | selectattr('endpoints', 'defined') | map(attribute='endpoints') | flatten
+           | selectattr('conditions.ready', 'defined')
+           | selectattr('conditions.ready', 'equalto', true)
+           | selectattr('addresses', 'defined') | map(attribute='addresses') | flatten }}
+    until:
+    - _virtctl_endpoint_slices is succeeded
+    - _virtctl_ready_addresses | length > 0
+    retries: "{{ ocp4_workload_openshift_virtualization_virtctl_backend_wait_retries }}"
+    delay: "{{ ocp4_workload_openshift_virtualization_virtctl_backend_wait_delay }}"
 
   # A Route targetPort names a Service targetPort (or port name), not
   # necessarily its exposed port number. Resolve it before building the proxy URL.

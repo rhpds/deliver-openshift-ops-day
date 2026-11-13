@@ -54,6 +54,10 @@ ocp4_workload_openshift_virtualization_install_virtctl: true
 ocp4_workload_openshift_virtualization_virtctl_download_retries: 20
 ocp4_workload_openshift_virtualization_virtctl_download_delay: 10
 ocp4_workload_openshift_virtualization_virtctl_download_timeout: 30
+# Backend discovery/readiness can lag while CNV nodes reboot or images pull.
+# Separate its ~15 minute polling budget from individual download retries.
+ocp4_workload_openshift_virtualization_virtctl_backend_wait_retries: 90
+ocp4_workload_openshift_virtualization_virtctl_backend_wait_delay: 10
 # Preserve existing behavior for workshop clusters with private serving CAs.
 # Set true when the bastion trusts the cluster API and ingress certificates.
 ocp4_workload_openshift_virtualization_virtctl_validate_certs: false
