@@ -22,7 +22,9 @@ The same concepts apply to Microsoft Entra ID, Okta, Google Workspace, and any O
 
 == Deploy Keycloak
 
-=== Step 1: Install the RHBK Operator
+=== Step 1: Deploy Keycloak
+
+The Red Hat build of Keycloak (RHBK) operator isn't yet available in the OCP 5 operator catalog, so this script deploys Keycloak directly as a `Deployment` using the `keycloak-rhel9` image in `start-dev` mode, with an in-memory database - sufficient for this lab, though you'd use external PostgreSQL and the operator in production. It creates the `rhbk` namespace, an admin credentials secret, a `Service`, the `Deployment`, and an edge `Route`, then prints the Keycloak URL and admin credentials once the pod is ready.
 
 [source,bash,subs="+attributes",role="execute"]
 ----
@@ -35,65 +37,9 @@ else
 fi
 ----
 
-NOTE: This takes a minute or two while the operator installs and the CRDs register. Please wait for it to complete - only press **Ctrl+C** if it has been running for more than 5 minutes.
+NOTE: This takes a minute or two while the pod starts and becomes ready. Please wait for it to complete - only press **Ctrl+C** if it has been running for more than 5 minutes.
 
-=== Step 2: Deploy Keycloak
-
-Deploy a Keycloak instance. We use `dev-file` for the embedded database - in production you'd use external PostgreSQL.
-
-[source,bash,role="execute"]
-----
-cat <<EOF | oc apply -f -
-apiVersion: k8s.keycloak.org/v2beta1
-kind: Keycloak
-metadata:
-  name: keycloak
-  namespace: rhbk
-spec:
-  instances: 1
-  db:
-    vendor: dev-file
-  http:
-    httpEnabled: true
-  hostname:
-    strict: false
-  proxy:
-    headers: xforwarded
-EOF
-----
-
-Wait for the pod to start (this takes a minute or two):
-
-[source,bash,role="execute"]
-----
-echo "Waiting for Keycloak pod to be created..."
-ELAPSED=0
-until oc get pod keycloak-0 -n rhbk 2>/dev/null; do
-  sleep 5; ELAPSED=$((ELAPSED+5))
-  [ $ELAPSED -ge 180 ] && echo "ERROR: Timed out waiting for Keycloak pod" && break
-done
-echo "Waiting for Keycloak to be ready..."
-oc wait --for=condition=Ready pod/keycloak-0 -n rhbk --timeout=120s
-echo "Keycloak is running"
-----
-
-Create a route for external access:
-
-[source,bash,role="execute"]
-----
-oc create route edge keycloak --service=keycloak-service --port=8080 -n rhbk
-----
-
-Get the admin credentials - you'll need these to log into the Keycloak console:
-
-[source,bash,role="execute"]
-----
-echo "Keycloak URL: https://$(oc get route keycloak -n rhbk -o jsonpath='{.spec.host}')"
-echo "Username: $(oc get secret keycloak-initial-admin -n rhbk -o jsonpath='{.data.username}' | base64 -d)"
-echo "Password: $(oc get secret keycloak-initial-admin -n rhbk -o jsonpath='{.data.password}' | base64 -d)"
-----
-
-Copy the URL and open it in a **new browser tab**. Log in with the admin credentials above.
+Copy the URL printed above and open it in a **new browser tab**. Log in with the admin credentials shown.
 
 You're now in the Red Hat build of Keycloak admin console. You'll see the **master realm** welcome page:
 
@@ -102,7 +48,7 @@ This is where you manage realms, users, clients, and authentication flows.
 
 == Configure Users & Groups
 
-=== Step 3: Create an OpenShift Realm
+=== Step 2: Create an OpenShift Realm
 
 Keycloak uses **realms** to isolate sets of users, credentials, and clients. The default `master` realm is for Keycloak administration only - you should always create a separate realm for your applications.
 
@@ -119,7 +65,7 @@ You'll see both realms listed, with **OpenShift** as the current realm:
 image::oidc-rhbk-realm-created.png[Manage realms showing master and OpenShift realms, link=self, window=blank]
 You're now working inside the OpenShift realm. Everything you create from here - users, groups, clients - belongs to this realm.
 
-=== Step 4: Create Your First User
+=== Step 3: Create Your First User
 
 Create a user manually so you understand the Keycloak user management interface.
 
@@ -150,7 +96,7 @@ image::oidc-rhbk-set-password.png[Set password dialog with Temporary set to Off,
 +
 9. Click **Save** and confirm
 
-=== Step 5: Create Your First Group
+=== Step 4: Create Your First Group
 
 Groups in Keycloak map to OpenShift groups. When a user logs into OpenShift, their Keycloak group membership is included in the ID token - OpenShift reads it and creates the groups automatically.
 
@@ -168,7 +114,7 @@ image::oidc-rhbk-user-join-group.png[User Groups tab showing Join Group button, 
 +
 3. Click **Join Group** → select **ocp-admins** → click **Join**
 
-=== Step 6: Script the Remaining Users and Groups
+=== Step 5: Script the Remaining Users and Groups
 
 You've seen how users and groups work in the Keycloak UI. Rather than repeating those clicks, we'll use the Keycloak REST API to create the remaining users, groups, and the OIDC client - the same API you'd use to automate this in production.
 
@@ -189,7 +135,7 @@ Verify the setup in the Keycloak UI - click **Users** and **Groups** to confirm 
 
 == Connect to OpenShift
 
-=== Step 7: Configure OpenShift OAuth
+=== Step 6: Configure OpenShift OAuth
 
 Applying this OAuth config change causes `oauth-openshift` to restart - and the authentication operator applies the change in several stages, so it's normal for `oauth-openshift` to restart *more than once in a row* over the next several minutes. If the **OCP Console** tab is logged in and watching the API while that happens, its connections start failing and retrying continuously, which can freeze the tab (see the warning below for why this is worse on this embedded Console).
 
@@ -230,7 +176,7 @@ Instead, do the OIDC login test in a **separate, external browser tab**: {opensh
 If you have issues with that tab freezing too, please open the link in an incognito/private window instead.
 ====
 
-=== Step 8: Test OIDC Login and Automatic Group Sync
+=== Step 7: Test OIDC Login and Automatic Group Sync
 
 1. Open the console in a separate browser tab: {openshift_cluster_console_url}[window=blank]. You'll see both identity providers:
 +
@@ -274,7 +220,7 @@ In the output, look at the `identities` section - it shows the identity provider
 
 .Users and groups are bound to roles that define what they can do - either within a project or cluster-wide
 image::diagrams/07_08_rbac.png[OpenShift RBAC, align=center, link=self, window=blank]
-=== Step 9: Configure RBAC and Verify Permissions
+=== Step 8: Configure RBAC and Verify Permissions
 
 Grant permissions to the OIDC groups:
 
@@ -301,7 +247,7 @@ oc adm policy add-role-to-group view ocp-developers -n app-production
 
 NOTE: You may see `Warning: Group 'ocp-admins' not found` or similar - this is normal. OIDC groups are only created in OpenShift when a user from that group logs in. Only `developer1` has logged in so far, so only `ocp-developers` exists. The role bindings are still created and will take effect when those users log in.
 
-Now verify - reload the **external Console tab** you logged into as `developer1` in Step 8 (not the embedded one). The console should now show the projects they have access to. You should see **Application Development** and **Application Production** in the project list.
+Now verify - reload the **external Console tab** you logged into as `developer1` in Step 7 (not the embedded one). The console should now show the projects they have access to. You should see **Application Development** and **Application Production** in the project list.
 
 Test permissions from the terminal using developer1's token:
 
@@ -354,7 +300,7 @@ In the **OCP Console** tab, log out of `developer1`.
 *Before moving on:* Please run the cleanup commands in this module. This cluster has limited resources - leaving workloads running can cause resource pressure that may affect your experience in later modules.
 ====
 
-As in Step 7, log out of the **external Console tab** you've been using since Step 8 before running the cleanup script below, to avoid freezing it while OAuth restarts. (The embedded **OCP Console** tab should still be untouched on its login page from Step 7 - leave it that way.)
+As in Step 6, log out of the **external Console tab** you've been using since Step 7 before running the cleanup script below, to avoid freezing it while OAuth restarts. (The embedded **OCP Console** tab should still be untouched on its login page from Step 6 - leave it that way.)
 
 1. In that external Console tab, click your username (top-right) and select **Log out**
 
