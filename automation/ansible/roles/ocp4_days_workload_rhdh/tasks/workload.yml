@@ -25,6 +25,12 @@
 
 # Create the operator namespace
 - name: Create RHDH operator namespace
+  register: _ops_retry_rhdh_2
+  until: >-
+    (_ops_retry_rhdh_2 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_2
+    is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -35,6 +41,12 @@
 
 # Create the instance namespace
 - name: Create RHDH instance namespace
+  register: _ops_retry_rhdh_3
+  until: >-
+    (_ops_retry_rhdh_3 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_3
+    is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -46,7 +58,7 @@
 # Install the RHDH Operator
 - name: Install Red Hat Developer Hub Operator
   ansible.builtin.include_role:
-    name: install_operator
+    name: deliver_openshift_ops_day.automation.ocp4_workload_operator_install
   vars:
     install_operator_action: install
     install_operator_name: rhdh
@@ -70,25 +82,36 @@
     label_selectors:
       - app=rhdh-operator
   register: r_rhdh_operator
-  until:
-    - r_rhdh_operator.resources | length > 0
-    - r_rhdh_operator.resources[0].status.readyReplicas is defined
-    - r_rhdh_operator.resources[0].status.readyReplicas | int >= 1
-  retries: 30
+  until: >-
+    (r_rhdh_operator | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_rhdh_operator
+    | deliver_openshift_ops_day.automation.ops_ready('deployment')))
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
 
 # Create registry auth secret for the install-dynamic-plugins init container.
 # RHDH v1.9.0+ uses skopeo to pull the plugin catalog index from registry.redhat.io,
 # which needs credentials from this secret. We copy from the cluster's global pull secret.
 - name: Get global pull secret
+  until: >-
+    (r_pull_secret | deliver_openshift_ops_day.automation.ops_permanent_error) or (r_pull_secret |
+    deliver_openshift_ops_day.automation.ops_data_ready(['.dockerconfigjson']))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
+  no_log: true
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: pull-secret
     namespace: openshift-config
   register: r_pull_secret
-
 - name: Create registry auth secret for dynamic plugins
+  register: _ops_retry_rhdh_7
+  until: >-
+    (_ops_retry_rhdh_7 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_7
+    is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
+  no_log: true
   kubernetes.core.k8s:
     state: present
     definition:
@@ -103,6 +126,12 @@
 
 # Create guest auth ConfigMap if enabled
 - name: Create guest auth ConfigMap
+  register: _ops_retry_rhdh_8
+  until: >-
+    (_ops_retry_rhdh_8 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_8
+    is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -122,6 +151,12 @@
 
 # Create the Backstage CR
 - name: Create Red Hat Developer Hub Instance
+  register: _ops_retry_rhdh_9
+  until: >-
+    (_ops_retry_rhdh_9 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_9
+    is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -174,22 +209,25 @@
     namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
     name: "backstage-{{ ocp4_days_workload_rhdh_instance_name }}"
   register: r_backstage_deployment
-  until:
-    - r_backstage_deployment.resources | length > 0
-    - r_backstage_deployment.resources[0].status.readyReplicas is defined
-    - r_backstage_deployment.resources[0].status.readyReplicas | int >= 1
+  until: >-
+    (r_backstage_deployment | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_backstage_deployment
+    | deliver_openshift_ops_day.automation.ops_ready('deployment')))
   retries: "{{ ocp4_days_workload_rhdh_deployment_wait_retries | int }}"
   delay: 20
 
 # Get the route URL
 - name: Get Backstage route
+  until: >-
+    (r_backstage_route | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_backstage_route
+    | deliver_openshift_ops_day.automation.ops_ready('route')))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s_info:
     api_version: route.openshift.io/v1
     kind: Route
     namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
     name: "backstage-{{ ocp4_days_workload_rhdh_instance_name }}"
   register: r_backstage_route
-
 - name: Set Backstage URL fact
   set_fact:
     ocp4_days_workload_rhdh_url: "https://{{ r_backstage_route.resources[0].spec.host }}"
@@ -202,6 +240,12 @@
 
 # Create console link for app launcher
 - name: Create ConsoleLink for Developer Hub
+  register: _ops_retry_rhdh_16
+  until: >-
+    (_ops_retry_rhdh_16 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_16
+    is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -228,6 +272,12 @@
 
   # --- Service Account + RBAC ---
   - name: Create RHDH Kubernetes plugin service account and RBAC
+    register: _ops_retry_rhdh_18
+    until: >-
+      (_ops_retry_rhdh_18 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_18
+      is succeeded))
+    retries: '{{ ops_day_api_retries | default(120) }}'
+    delay: '{{ ops_day_retry_delay | default(10) }}'
     kubernetes.core.k8s:
       state: present
       definition: "{{ item }}"
@@ -278,6 +328,12 @@
 
   # --- Team workloads ---
   - name: Create team namespaces
+    register: _ops_retry_rhdh_19
+    until: >-
+      (_ops_retry_rhdh_19 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_19
+      is succeeded))
+    retries: '{{ ops_day_api_retries | default(120) }}'
+    delay: '{{ ops_day_retry_delay | default(10) }}'
     kubernetes.core.k8s:
       state: present
       definition:
@@ -363,12 +419,21 @@
   - name: Generate long-lived SA token for template
     shell: oc create token rhdh-kubernetes-plugin -n {{ ocp4_days_workload_rhdh_instance_namespace }} --duration=8760h
     register: r_sa_token_template
+    no_log: true
 
   - name: Generate SA token for Kubernetes plugin secret
     shell: oc create token rhdh-kubernetes-plugin -n {{ ocp4_days_workload_rhdh_instance_namespace }} --duration=8760h
     register: r_sa_token_secret
+    no_log: true
 
   - name: Create SA token secret for Kubernetes plugin
+    register: _ops_retry_rhdh_26
+    until: >-
+      (_ops_retry_rhdh_26 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_26
+      is succeeded))
+    retries: '{{ ops_day_api_retries | default(120) }}'
+    delay: '{{ ops_day_retry_delay | default(10) }}'
+    no_log: true
     kubernetes.core.k8s:
       state: present
       definition:
@@ -381,7 +446,32 @@
           K8S_PLUGIN_SA_TOKEN: "{{ r_sa_token_secret.stdout }}"
 
   # --- Dynamic plugins ---
+  - name: Build dynamic plugins list
+    set_fact:
+      _ocp4_days_workload_rhdh_dynamic_plugins:
+        - package: oci://registry.access.redhat.com/rhdh/backstage-plugin-kubernetes-backend@sha256:bf03068723bff41f5a858dcb75ba5c2eee98a1f2d273fd3fe10b7bbf1d1fb9ed
+          disabled: false
+        - package: oci://registry.access.redhat.com/rhdh/backstage-plugin-kubernetes@sha256:8ebc5eda5c5169ce5b65a411bfcd2d818f5251c7a65fae995e354ba43c6f1eda
+          disabled: false
+        - package: oci://registry.access.redhat.com/rhdh/backstage-community-plugin-topology@sha256:e40ff8f8463a0440edd7ad044f5e5308ca2fc43722e22da5f9a5eecfde20b378
+          disabled: false
+        - package: oci://registry.access.redhat.com/rhdh/backstage-community-plugin-scaffolder-backend-module-kubernetes@sha256:863cc87c1650541b9b56d8457c6320e379ae9be3d0e80c6d8fbb80bd223810c1
+          disabled: false
+        - package: oci://registry.access.redhat.com/rhdh/roadiehq-scaffolder-backend-module-http-request@sha256:ee0258e54a56936026a82e06b8b52844cdd2cff16de726921929b417009d7f3d
+          disabled: false
+
+  - name: Require the guest auth backend plugin when guest auth is enabled
+    set_fact:
+      _ocp4_days_workload_rhdh_dynamic_plugins: "{{ _ocp4_days_workload_rhdh_dynamic_plugins + [ocp4_days_workload_rhdh_guest_auth_plugin] }}"
+    when: ocp4_days_workload_rhdh_enable_guest_auth | bool
+
   - name: Create dynamic plugins ConfigMap
+    register: _ops_retry_rhdh_29
+    until: >-
+      (_ops_retry_rhdh_29 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_29
+      is succeeded))
+    retries: '{{ ops_day_api_retries | default(120) }}'
+    delay: '{{ ops_day_retry_delay | default(10) }}'
     kubernetes.core.k8s:
       state: present
       definition:
@@ -391,30 +481,57 @@
           name: dynamic-plugins-rhdh
           namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
         data:
-          dynamic-plugins.yaml: |
-            includes:
-              - dynamic-plugins.default.yaml
-            plugins:
-              - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes-backend-dynamic
-                disabled: false
-              - package: ./dynamic-plugins/dist/backstage-plugin-kubernetes
-                disabled: false
-              - package: ./dynamic-plugins/dist/backstage-community-plugin-topology
-                disabled: false
-              - package: ./dynamic-plugins/dist/backstage-community-plugin-scaffolder-backend-module-kubernetes-dynamic
-                disabled: false
-              - package: ./dynamic-plugins/dist/roadiehq-scaffolder-backend-module-http-request-dynamic
-                disabled: false
-              - package: ./dynamic-plugins/dist/red-hat-developer-hub-backstage-plugin-quickstart
-                disabled: true
+          dynamic-plugins.yaml: >-
+            {{ {'includes': ['dynamic-plugins.default.yaml'],
+                'plugins': _ocp4_days_workload_rhdh_dynamic_plugins
+                  + (ocp4_days_workload_rhdh_extra_dynamic_plugins | default([]))}
+               | to_nice_yaml(indent=2) }}
 
   # --- Catalog + template ---
+  # Fetch fallbacks only when needed; eager lookup('pipe') defaults made a
+  # transient read fail even when the caller had already supplied valid URLs.
+  - name: Discover RHDH cluster API URL when not supplied
+    ansible.builtin.command: oc whoami --show-server
+    register: _ops_rhdh_api_url
+    changed_when: false
+    until:
+    - _ops_rhdh_api_url is succeeded
+    - _ops_rhdh_api_url.stdout | default('') | length > 0
+    retries: "{{ ops_day_api_retries | default(120) }}"
+    delay: "{{ ops_day_retry_delay | default(10) }}"
+    when: ocp4_days_workload_rhdh_api_url is not defined
+
+  - name: Discover RHDH console URL when not supplied
+    kubernetes.core.k8s_info:
+      api_version: route.openshift.io/v1
+      kind: Route
+      name: console
+      namespace: openshift-console
+    register: _ops_rhdh_console_route
+    until: >-
+      (_ops_rhdh_console_route | deliver_openshift_ops_day.automation.ops_permanent_error) or (_ops_rhdh_console_route
+      | deliver_openshift_ops_day.automation.ops_ready('route'))
+    retries: "{{ ops_day_api_retries | default(120) }}"
+    delay: "{{ ops_day_retry_delay | default(10) }}"
+    when: ocp4_days_workload_rhdh_console_url is not defined
+
   - name: Set cluster URLs
     set_fact:
-      _rhdh_api_url: "{{ ocp4_days_workload_rhdh_api_url | default(lookup('pipe', 'oc whoami --show-server')) }}"
-      _rhdh_console_url: "{{ ocp4_days_workload_rhdh_console_url | default(lookup('pipe', \"oc get route console -n openshift-console -o jsonpath='https://{.spec.host}'\")) }}"
+      _rhdh_api_url: >-
+        {{ ocp4_days_workload_rhdh_api_url if ocp4_days_workload_rhdh_api_url is defined
+           else _ops_rhdh_api_url.stdout | trim }}
+      _rhdh_console_url: >-
+        {{ ocp4_days_workload_rhdh_console_url if ocp4_days_workload_rhdh_console_url is defined
+           else 'https://' ~ _ops_rhdh_console_route.resources[0].spec.host }}
 
   - name: Create catalog and template ConfigMap
+    no_log: true
+    register: _ops_retry_rhdh_31
+    until: >-
+      (_ops_retry_rhdh_31 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_31
+      is succeeded))
+    retries: '{{ ops_day_api_retries | default(120) }}'
+    delay: '{{ ops_day_retry_delay | default(10) }}'
     kubernetes.core.k8s:
       state: present
       definition:
@@ -669,6 +786,12 @@
 
   # --- Update app-config with cluster connection ---
   - name: Update app-config with Kubernetes plugin settings
+    register: _ops_retry_rhdh_32
+    until: >-
+      (_ops_retry_rhdh_32 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_32
+      is succeeded))
+    retries: '{{ ops_day_api_retries | default(120) }}'
+    delay: '{{ ops_day_retry_delay | default(10) }}'
     kubernetes.core.k8s:
       state: present
       definition:
@@ -711,6 +834,13 @@
 
   # --- Patch Backstage CR to wire everything up ---
   - name: Patch Backstage CR with plugins, secrets, and catalog
+    register: _ops_retry_rhdh_33
+    until: >-
+      (_ops_retry_rhdh_33 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_rhdh_33
+      is succeeded))
+    retries: '{{ ops_day_api_retries | default(120) }}'
+    delay: '{{ ops_day_retry_delay | default(10) }}'
+    no_log: true
     kubernetes.core.k8s:
       state: present
       definition:
@@ -749,11 +879,10 @@
       namespace: "{{ ocp4_days_workload_rhdh_instance_namespace }}"
       name: "backstage-{{ ocp4_days_workload_rhdh_instance_name }}"
     register: r_backstage_workshop
-    until:
-      - r_backstage_workshop.resources | length > 0
-      - r_backstage_workshop.resources[0].status.readyReplicas is defined
-      - r_backstage_workshop.resources[0].status.readyReplicas | int >= 1
-    retries: 40
+    until: >-
+      (r_backstage_workshop | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_backstage_workshop
+      | deliver_openshift_ops_day.automation.ops_ready('deployment')))
+    retries: '{{ ops_day_readiness_retries | default(60) }}'
     delay: 20
 
 - name: Workload tasks complete

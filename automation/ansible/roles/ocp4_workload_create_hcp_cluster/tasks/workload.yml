@@ -77,11 +77,18 @@
     label_selectors:
       - app=operator
   register: r_hypershift_operator
-  retries: 30
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
-  until: r_hypershift_operator.resources | length > 0
-
+  until: >-
+    (r_hypershift_operator | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_hypershift_operator
+    | deliver_openshift_ops_day.automation.ops_ready('pods')))
 - name: Create clusters namespace
+  register: _ops_retry_create_hcp_cluster_8
+  until: >-
+    (_ops_retry_create_hcp_cluster_8 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_create_hcp_cluster_8 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     api_version: v1
@@ -89,14 +96,26 @@
     name: "{{ ocp4_workload_create_hcp_cluster_namespace }}"
 
 - name: Retrieve pull-secret from openshift-config
+  until: >-
+    (r_pull_secret | deliver_openshift_ops_day.automation.ops_permanent_error) or (r_pull_secret |
+    deliver_openshift_ops_day.automation.ops_data_ready(['.dockerconfigjson']))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
+  no_log: true
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: pull-secret
     namespace: openshift-config
   register: r_pull_secret
-
 - name: Create pull secret for hosted cluster
+  register: _ops_retry_create_hcp_cluster_10
+  until: >-
+    (_ops_retry_create_hcp_cluster_10 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_create_hcp_cluster_10 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
+  no_log: true
   kubernetes.core.k8s:
     state: present
     definition:
@@ -110,6 +129,13 @@
         .dockerconfigjson: "{{ r_pull_secret.resources[0].data['.dockerconfigjson'] }}"
 
 - name: Create SSH key secret for hosted cluster
+  register: _ops_retry_create_hcp_cluster_11
+  until: >-
+    (_ops_retry_create_hcp_cluster_11 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_create_hcp_cluster_11 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
+  no_log: true
   kubernetes.core.k8s:
     state: present
     definition:
@@ -123,6 +149,12 @@
         id_rsa.pub: ""
 
 - name: Create HostedCluster
+  register: _ops_retry_create_hcp_cluster_12
+  until: >-
+    (_ops_retry_create_hcp_cluster_12 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_create_hcp_cluster_12 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     template: hostedcluster.yaml.j2
@@ -179,11 +211,12 @@
       register: r_hosted_cluster
       retries: "{{ (ocp4_workload_create_hcp_cluster_timeout | int / 10) | int }}"
       delay: 10
-      until:
-        - r_hosted_cluster.resources | length > 0
-        - r_hosted_cluster.resources[0].status is defined
-        - r_hosted_cluster.resources[0].status.conditions is defined
-        - r_hosted_cluster.resources[0].status.conditions | selectattr('type', 'equalto', 'Available') | selectattr('status', 'equalto', 'True') | list | length > 0
+      until: >-
+        (r_hosted_cluster | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_hosted_cluster
+        is succeeded) and (r_hosted_cluster.resources | default([]) | length > 0) and (r_hosted_cluster.resources[0].status
+        is defined) and (r_hosted_cluster.resources[0].status.conditions is defined) and (r_hosted_cluster.resources[0].status.conditions
+        | selectattr('type', 'equalto', 'Available') | selectattr('status', 'equalto', 'True') | list
+        | length > 0))
   rescue:
     - name: DEBUG - Post-failure HCP cluster state
       shell: |
@@ -296,13 +329,17 @@
     _hcp_kubeconfig_secret: "{{ ocp4_workload_create_hcp_cluster_name }}-admin-kubeconfig"
 
 - name: Retrieve hosted cluster kubeconfig
+  until: >-
+    (r_hcp_kubeconfig | deliver_openshift_ops_day.automation.ops_permanent_error) or (r_hcp_kubeconfig
+    | deliver_openshift_ops_day.automation.ops_data_ready(['kubeconfig']))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ _hcp_kubeconfig_secret }}"
     namespace: "{{ ocp4_workload_create_hcp_cluster_namespace }}"
   register: r_hcp_kubeconfig
-
 - name: Write hosted cluster kubeconfig to disk
   copy:
     content: "{{ r_hcp_kubeconfig.resources[0].data.kubeconfig | b64decode }}"
@@ -399,6 +436,12 @@
   when: not _guest_infra_ready
 
 - name: Pause HostedCluster to prevent HyperShift from reconciling OLM catalog-operator
+  register: _ops_retry_create_hcp_cluster_33
+  until: >-
+    (_ops_retry_create_hcp_cluster_33 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_create_hcp_cluster_33 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: patched
     api_version: hypershift.openshift.io/v1beta1

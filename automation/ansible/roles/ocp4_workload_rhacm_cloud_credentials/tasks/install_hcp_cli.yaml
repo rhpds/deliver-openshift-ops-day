@@ -5,18 +5,22 @@
 
 - name: Wait until HCP CLI download deployment is ready
   kubernetes.core.k8s_info:
-    api_version: v1
+    api_version: apps/v1
     kind: Deployment
     namespace: multicluster-engine
     name: hcp-cli-download
   register: r_hcp_cli_deployment
-  retries: 60
-  delay: 30
+  retries: "{{ ocp4_workload_rhacm_cloud_credentials_hcp_wait_retries }}"
+  delay: "{{ ocp4_workload_rhacm_cloud_credentials_retry_delay }}"
+  vars:
+    _hcp_cli_deployment: "{{ r_hcp_cli_deployment.resources | default([]) | first | default({}) }}"
+    _hcp_cli_status: "{{ _hcp_cli_deployment.get('status', {}) }}"
   until:
-  - r_hcp_cli_deployment.resources | length | int > 0
-  - r_hcp_cli_deployment.resources[0].status.readyReplicas is defined
-  # yamllint disable-line rule:line-length
-  - r_hcp_cli_deployment.resources[0].status.readyReplicas | int == r_hcp_cli_deployment.resources[0].spec.replicas | int
+  - r_hcp_cli_deployment is succeeded
+  - r_hcp_cli_deployment.resources | default([]) | length == 1
+  - _hcp_cli_status.get('observedGeneration', 0) | int >= _hcp_cli_deployment.get('metadata', {}).get('generation', 1) | int
+  - _hcp_cli_status.get('readyReplicas', 0) | int >= 1
+  - _hcp_cli_status.get('readyReplicas', 0) | int == _hcp_cli_deployment.get('spec', {}).get('replicas', 1) | int
 
 - name: Get HCP CLI download URL
   kubernetes.core.k8s_info:
@@ -24,24 +28,32 @@
     kind: ConsoleCLIDownload
     name: hcp-cli-download
   register: r_hcp_cli_download
-  retries: 20
-  delay: 10
-  until: r_hcp_cli_download.resources | length > 0
+  retries: "{{ ocp4_workload_rhacm_cloud_credentials_hcp_wait_retries }}"
+  delay: "{{ ocp4_workload_rhacm_cloud_credentials_retry_delay }}"
+  vars:
+    _hcp_cli_linux_links: >-
+      {{ (r_hcp_cli_download.resources | default([]) | first | default({}))
+         .get('spec', {}).get('links', [])
+         | selectattr('href', 'defined') | map(attribute='href')
+         | select('search', '-linux-amd64') | list }}
+  until:
+  - r_hcp_cli_download is succeeded
+  - _hcp_cli_linux_links | length > 0
 
 - name: Set HCP CLI download URL
-  when: r_hcp_cli_download.resources | length > 0
   ansible.builtin.set_fact:
     _ocp4_workload_rhacm_hcp_cli_url: >-
-      {{ r_hcp_cli_download.resources[0] | to_json | from_json
-      | json_query("spec.links[?contains(href,'/linux/amd64')].href") | first }}
+      {{ r_hcp_cli_download.resources[0].spec.links
+         | selectattr('href', 'defined') | map(attribute='href')
+         | select('search', '-linux-amd64') | first }}
 
 - name: DEBUG - HCP CLI install context
   ignore_errors: true
   ansible.builtin.debug:
     msg:
-      - "bastions group: {{ groups['bastions'] | default('NOT DEFINED') }}"
-      - "target host: {{ groups['bastions'][0] | default('NONE') }}"
-      - "download url: {{ _ocp4_workload_rhacm_hcp_cli_url }}"
+    - "bastions group: {{ groups['bastions'] | default('NOT DEFINED') }}"
+    - "target host: {{ groups['bastions'][0] | default('NONE') }}"
+    - "download url: {{ _ocp4_workload_rhacm_hcp_cli_url }}"
 
 - name: Verify bastion is reachable
   ignore_errors: true
@@ -54,8 +66,8 @@
   ignore_errors: true
   ansible.builtin.debug:
     msg:
-      - "bastion user: {{ r_bastion_whoami.stdout | default('UNKNOWN') }}"
-      - "bastion host: {{ groups['bastions'][0] | default('UNKNOWN') }}"
+    - "bastion user: {{ r_bastion_whoami.stdout | default('UNKNOWN') }}"
+    - "bastion host: {{ groups['bastions'][0] | default('UNKNOWN') }}"
 
 - name: Download HCP CLI
   delegate_to: "{{ groups['bastions'][0] }}"

@@ -1,5 +1,11 @@
 ---
 - name: Ensure namespace exists
+  register: _ops_retry_ztwim_0
+  until: >-
+    (_ops_retry_ztwim_0 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_ztwim_0
+    is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     api_version: v1
@@ -8,7 +14,7 @@
 
 - name: Install Zero Trust Workload Identity Manager operator
   ansible.builtin.include_role:
-    name: install_operator
+    name: deliver_openshift_ops_day.automation.ocp4_workload_operator_install
   vars:
     install_operator_action: install
     install_operator_name: "{{ ocp4_days_workload_ztwim_package }}"
@@ -21,7 +27,6 @@
     install_operator_catalogsource_image: "{{ ocp4_days_workload_ztwim_catalog_snapshot_image }}"
     install_operator_catalogsource_image_tag: "{{ ocp4_days_workload_ztwim_catalog_snapshot_image_tag }}"
     install_operator_csv_nameprefix: zero-trust-workload-identity-manager
-    install_operator_install_csv_ignore_error: true
 
 - name: DEBUG - ZTWIM Subscription status
   kubernetes.core.k8s_info:
@@ -68,14 +73,11 @@
     label_selectors:
       - "name=zero-trust-workload-identity-manager"
   register: r_ztwim_deployment
-  until:
-    - r_ztwim_deployment.resources | length > 0
-    - r_ztwim_deployment.resources[0].status.readyReplicas is defined
-    - r_ztwim_deployment.resources[0].status.readyReplicas | int >= 1
-  retries: 30
+  until: >-
+    (r_ztwim_deployment | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_ztwim_deployment
+    | deliver_openshift_ops_day.automation.ops_ready('deployment')))
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
-  ignore_errors: true
-
 - name: DEBUG - ZTWIM deployment status
   ansible.builtin.debug:
     msg:

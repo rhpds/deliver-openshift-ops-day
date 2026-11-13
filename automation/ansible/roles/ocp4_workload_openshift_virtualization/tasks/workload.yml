@@ -117,11 +117,15 @@
         when: not ocp4_workload_openshift_virtualization_boot_sources_shapshot | bool
         block:
         - name: Get all available storage classes
+          until: >-
+            (r_storageclasses | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_storageclasses
+            | deliver_openshift_ops_day.automation.ops_ready))
+          retries: '{{ ops_day_api_retries | default(120) }}'
+          delay: '{{ ops_day_retry_delay | default(10) }}'
           kubernetes.core.k8s_info:
             api_version: storage.k8s.io/v1
             kind: StorageClass
           register: r_storageclasses
-
         - name: Abort if no storage classes found
           when: r_storageclasses.resources | length == 0
           ansible.builtin.fail:
@@ -144,6 +148,12 @@
             msg: "Default storage class: {{ _ocp4_workload_openshift_virtualization_default_storage_class }}"
 
         - name: Patch the storage profile matching the default storage class to use pvc instead of snapshot
+          register: _ops_retry_openshift_virtualization_14
+          until: >-
+            (_ops_retry_openshift_virtualization_14 | deliver_openshift_ops_day.automation.ops_permanent_error)
+            or ((_ops_retry_openshift_virtualization_14 is succeeded))
+          retries: '{{ ops_day_api_retries | default(120) }}'
+          delay: '{{ ops_day_retry_delay | default(10) }}'
           kubernetes.core.k8s:
             state: patched
             api_version: cdi.kubevirt.io/v1beta1
@@ -154,6 +164,12 @@
                 dataImportCronSourceFormat: pvc
 
         - name: If we are using Hosted Control Planes, it is needed to set default accessMode, volumeMode and cloneStrategy
+          register: _ops_retry_openshift_virtualization_15
+          until: >-
+            (_ops_retry_openshift_virtualization_15 | deliver_openshift_ops_day.automation.ops_permanent_error)
+            or ((_ops_retry_openshift_virtualization_15 is succeeded))
+          retries: '{{ ops_day_api_retries | default(120) }}'
+          delay: '{{ ops_day_retry_delay | default(10) }}'
           when: _ocp4_workload_openshift_virtualization_default_storage_class == "kubevirt-csi-infra-default"
           kubernetes.core.k8s:
             state: patched
@@ -169,6 +185,12 @@
                 cloneStrategy: copy
 
         - name: Finally patch HyperConverged to import boot sources now using PVCs
+          register: _ops_retry_openshift_virtualization_16
+          until: >-
+            (_ops_retry_openshift_virtualization_16 | deliver_openshift_ops_day.automation.ops_permanent_error)
+            or ((_ops_retry_openshift_virtualization_16 is succeeded))
+          retries: '{{ ops_day_api_retries | default(120) }}'
+          delay: '{{ ops_day_retry_delay | default(10) }}'
           kubernetes.core.k8s:
             state: patched
             api_version: hco.kubevirt.io/v1beta1
@@ -281,4 +303,9 @@
 
     - name: Fail with original error
       fail:
-        msg: "Workload ocp4_workload_openshift_virtualization failed. See diagnostics above."
+        msg: >-
+          Workload ocp4_workload_openshift_virtualization failed at
+          {{ 'a task with no_log enabled' if (ansible_failed_task.no_log | default(false) | bool)
+             else ansible_failed_task.name }}.
+          See the original task failure and diagnostics above.
+          Raw failed results are deliberately not copied into this message.

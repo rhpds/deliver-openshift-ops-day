@@ -1,0 +1,975 @@
+[
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Create RHDH operator namespace",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "da52cd066ff9a566b58ff144c5f68bf968b43e26d42ff9e83bfc9eceff483030"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Create RHDH instance namespace",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "1e4f24353b9bbebfa5e2ae164f2165cad5b29f46f8625c940a6073bbec675b64"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Wait for RHDH operator to be ready",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "c6e5f93d5f1fe56dafc0847e22b20d476dc9d136f83ee52f6d054ffa39756a64"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Get global pull secret",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "573125df3320587adb16c75731bbb61822035f13edebb144c1e1cec6f7d13d46"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Create registry auth secret for dynamic plugins",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "b97951c1d7ea2dae8918a59a1b993e0ff9b3d38b18c3af74c78042d74f191f79"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Create guest auth ConfigMap",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "e5168e25b80dcbbc1e924a203e32f99b37dad32c111a5e07a889be0a684e10fd"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Create Red Hat Developer Hub Instance",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "c7e4c674ef202a3b23d6cb3b3751b502e2923807483de2842281137f5ae40410"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Wait for Backstage deployment to be ready",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "9ba288c1e7d7d19399582092a35318d4317d49c904547e461b664e0f91c4f366"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Get Backstage route",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "d7723a0a8b80dd9b05ee9657377921c34c1f43d0c0f0e5710fd4fdd1324491fe"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Create ConsoleLink for Developer Hub",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "d2c61b8217f59f3c50d4c4dc088fca241570bd38d1b626d24801284db829ba73"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Create RHDH Kubernetes plugin service account and RBAC",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "606068f215c4f37bb6cac1a9c742931559aa561378178d0718d530b5a356d19b"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Create team namespaces",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "1834eba37388f2875012a9151d80bf992ca4afd4d630db9dc323e6d29aeb5d62"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Create SA token secret for Kubernetes plugin",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "e8fb51fe2a49a58c7fb5cd9e62e2aef23e38d112d7b66242ec104edeb15c3062"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Create dynamic plugins ConfigMap",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "285c97a3ba6f73f663e590351604debd8917be4854e27d255065bbcb9dccd997"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Create catalog and template ConfigMap",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "0e53b9beb0bccf770f4d6ee992a95a144049fc3ccba980a331f78f03e490b550"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Update app-config with Kubernetes plugin settings",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "9a6a9c92d360d1cf33bf732b9bc06ed513dfe940c7731a30d5b1c834a7b70d36"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Patch Backstage CR with plugins, secrets, and catalog",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "8a997f877f5c510735eec18a7911ab47f485dfcb288edbf7de3c93fbee0d1ee0"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_rhdh/tasks/workload.yml",
+    "name": "Wait for RHDH rollout after workshop config",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "9ba288c1e7d7d19399582092a35318d4317d49c904547e461b664e0f91c4f366"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_vault/tasks/workload.yml",
+    "name": "Ensure namespace exists",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "226bce520b573b763807be4c64469c34cd721f6fdcaa2252703daac9f3926edf"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_vault/tasks/workload.yml",
+    "name": "Get cluster ingress domain",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "6c90db907bcde236c799b718b8ea8425014306ae88af3b97aa499d4a89d4d23e"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_vault/tasks/workload.yml",
+    "name": "Wait for Vault server pod to be ready",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "e996ee6c0e876536021ed9295d3c7cd49f8435fb13f225fa6c86fce672ce1272"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_vault/tasks/workload.yml",
+    "name": "DEBUG - Vault pods",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "1b8e9db516d7236b22c20b9a1c0feb0813960e3110b67382d73009734bff8559"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_vault/tasks/workload.yml",
+    "name": "Get Vault route",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "42925d13f98a7e2e7cebee52e198b4c162d6ff91d4382b80126f5552d27e3818"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_vault/tasks/workload.yml",
+    "name": "Check if cert-manager is available",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "5c215245e7f2c691e2ffbbd17fb49006a7645cc7bc7b28dacd6cf3e4b2569b08"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_vault/tasks/workload.yml",
+    "name": "Create self-signed ClusterIssuer for Vault route",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "d3fe577ea576296331be8902d79ea945bfa4bcaeff32d2cb295de217d2682480"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_vault/tasks/workload.yml",
+    "name": "Annotate Vault route for cert-manager TLS",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "8a293bd12498095354df5c271f314097949d17c0761e82353a9a9b1d66b565c1"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_ztwim/tasks/workload.yml",
+    "name": "Ensure namespace exists",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "d0c831e65c856a16313f1d0baeb5d34ddf78776a33ef953886a0686b07bfbe45"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_ztwim/tasks/workload.yml",
+    "name": "DEBUG - ZTWIM Subscription status",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "09df835e821221c5a691ebbd7f3dd02b55b61ea16c232a7e7b8e0970e84caf59"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_ztwim/tasks/workload.yml",
+    "name": "DEBUG - ZTWIM CSV status",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "03dca4d8804748390ae57ea54f0c42f75ccac24d5635fe2d892cb38679a6ee3c"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_ztwim/tasks/workload.yml",
+    "name": "Wait for ZTWIM operator deployment to be ready",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "8d334ead66ef292e5e96e658a49abea2add5b6c420b0ab0411f8be0248e8ff49"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_days_workload_ztwim/tasks/workload.yml",
+    "name": "DEBUG - ZTWIM pods",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "0d347eb2bdecd9ca20c9025f1770f7ffb1a8ff10ddba07ceb84213f476553a9f"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_acm_multicluster_observability/tasks/workload.yml",
+    "name": "Create MultCluster Observability Namespace",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "c0b09d6af81295bb6610733a14f7f43c46b477083288300b76dfd59458eade35"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_acm_multicluster_observability/tasks/workload.yml",
+    "name": "Get pull-secret from openshift-config",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "573125df3320587adb16c75731bbb61822035f13edebb144c1e1cec6f7d13d46"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_acm_multicluster_observability/tasks/workload.yml",
+    "name": "Create new secret",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "a41e7215c829c25b1bc516957e69ccdb75953c24e2fec9d74fb585e2eb5038a6"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_acm_multicluster_observability/tasks/workload.yml",
+    "name": "Check ODF is ready",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "117b6039fcc73bad1d2395259bdf66fee1c377c25a6cda8ec86b349210bbbd8b"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_acm_multicluster_observability/tasks/workload.yml",
+    "name": "Check NooBaa is ready",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "dc012654557ebf21a01466ff55ed88bb1be03bb6d986cafefa2df03613ce74cf"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_acm_multicluster_observability/tasks/workload.yml",
+    "name": "Create Object Bucket Claim",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "5699343dd97b3427383fea024a6fb43027c9e026db818a70f684a27054ed761b"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_acm_multicluster_observability/tasks/workload.yml",
+    "name": "Get Bucket information part 1",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "e8fb280c4b072c64a037ae317d23a0f65f94fcf9ea47a8bf13b505205ecb03d3"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_acm_multicluster_observability/tasks/workload.yml",
+    "name": "Get Bucket information part 2",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "e59abaaa962cb24a43524bae190d97c7ed7bec5c04920009738d4f00c059f795"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_acm_multicluster_observability/tasks/workload.yml",
+    "name": "Create Thanos Object Storage Secret",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "55e936a4ea2155fd5012243c0b3cf6f8a3161f9da084e4382b286918e49dc997"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_acm_multicluster_observability/tasks/workload.yml",
+    "name": "Create MultiCluster Observability for ACM",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "528e44f2bfdb5fe55fb6af642625d0e8a1e957018a54d0f4b5cd41edb3720038"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_cluster_cleanup_preflight/tasks/main.yml",
+    "name": "Apply KubeletConfig to lower image GC thresholds on compact cluster nodes",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "c9b3c7c0cbd887dae0c807e3018630b9899dc12fbcbfc69c86b74c6304542143"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_cluster_cleanup_preflight/tasks/main.yml",
+    "name": "Wait for MachineConfigPool master to begin rolling out new KubeletConfig",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "6c650eed51fc2fac01d765afa246e913989f90f5431a8de0347cd19d1155034e"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_cluster_cleanup_preflight/tasks/main.yml",
+    "name": "Wait for MachineConfigPool master to finish rolling update",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "6c650eed51fc2fac01d765afa246e913989f90f5431a8de0347cd19d1155034e"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_cluster_cleanup_preflight/tasks/main.yml",
+    "name": "Wait for OLM packageserver to recover after MCP rollout",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "a40eabf09c3ccb54833b939cbb8753765afcc8dfab17be9c5eec1b1ddb975ed7"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "DEBUG - Verify etcd storage class exists",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "733632f70f8fb8201446f2eb8391c36b87c4859f4a07f6d2cb4dc9e2c6bd128d"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "DEBUG - List all available storage classes",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "8dd818a5f56662dca7b06c257f042b2777e31a630271115738157f6a6c5ed1f3"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "DEBUG - Check MetalLB IP address pool",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "4e366c83b465f128f9a17c8ca65b70cfa4daad434323ee2b8e3fbc7dd73b4b11"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Verify HyperShift operator is running",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "ef1c8b9f0a2f18c99a5117ab9e6b99f04656475e0d1f7ac247c33fd76062e9b4"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Create clusters namespace",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "4cbf2f2c23536569c487966677defd30b3ebbbc4373898861874244ad304cf0a"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Retrieve pull-secret from openshift-config",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "573125df3320587adb16c75731bbb61822035f13edebb144c1e1cec6f7d13d46"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Create pull secret for hosted cluster",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "4ec6eba1d44fd8027e1415bb86a8c857f27f38a82a45babbccaee3841e3bbd8b"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Create SSH key secret for hosted cluster",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "6d71e0688b28becb7abc72feda42a77130d6c78636a1c5fdfddb7168a3d2254f"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Create HostedCluster",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "273ddc62e5924fbcb92ee3a1b20b38e8106a13c127759477231b81b2165d6112"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "DEBUG - Check etcd PVC status after HostedCluster creation",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "98d4ad532e5b5f570ebcabb6b78dd540ff961e91b4e8344fc8fc5150c913bc43"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "DEBUG - Check HostedCluster initial conditions",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "f9b9c48c286c77b9eebb53d77d2ac4a12edd140e9bbfee44697ceb6ff189d0e7"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Poll HostedCluster until Available",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "f9b9c48c286c77b9eebb53d77d2ac4a12edd140e9bbfee44697ceb6ff189d0e7"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Wait for catalog-operator Deployment to appear in HCP control plane namespace",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "1edaf983f907c052450b6429be3f25b766385c95aa63ac7562932c27449903b4"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Wait for hosted-cluster-config-operator Deployment to be Ready in HCP control plane namespace",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "b9e21470521db88950a6e25d87c3d789640059aa8f7cfaf5886773d1620e29f4"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Retrieve hosted cluster kubeconfig",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "256e4870b74e3fa88855dde3b4540a3d7830c35eced93a63a40cafee6c4f4c16"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Wait for guest Infrastructure object to be populated before pausing HostedCluster",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "34df046ff7f2cda5ada91558a9eb5257fa8d991ef7256f0fc6ff214f73a03ba4"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Re-check guest Infrastructure status survived the settle delay",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "34df046ff7f2cda5ada91558a9eb5257fa8d991ef7256f0fc6ff214f73a03ba4"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Wait again for guest Infrastructure status if it was wiped during the settle delay",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "34df046ff7f2cda5ada91558a9eb5257fa8d991ef7256f0fc6ff214f73a03ba4"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Pause HostedCluster to prevent HyperShift from reconciling OLM catalog-operator",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "e28946fb05fb34f5f4fe35f7a8c100dbe4c9785f52d19a2e88fdb0fa635170da"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Scale down HCP catalog-operator so it stops managing catalog Deployments",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "272f53fdb9b2abfef9c6733b88b9b275215a3fb7366c14a123b780803b7f0a8a"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_create_hcp_cluster/tasks/workload.yml",
+    "name": "Scale down unused OLM catalog Deployments in HCP control plane namespace",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "8a08cce2ae538cd6122bccc7723f516c2991cbeee959fa6ecadd1f4f5e096d2f"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Extract master_url from console route (fallback)",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "266578896dede5d81e8d4d6acb8e137fa206268ba105c949fe5ff7e9a39d080e"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Get the default route subdomain of the cluster",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "f8954740461653b9111579a1fd94f4434e1cfb090443532037dfde7b8b6be7b2"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Check if External ODF RBD ctrlplugin is present",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "422bf1c0fa7505797cfbae8751c7b11c68bcf978da2930b7a399be7e818da6a0"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Pre-create shared snapshot CatalogSource with extractContent",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "ab9a316e0a5a1b9c3bc76ecd6442e4d60032a7961c27577e0247af6da28a1a63"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Get current cluster-monitoring-config",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "ac8c6e1e4748f4d04720d3fb380c6cc509aa4eaeeb515ba0da0b68ac42ebb683"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Merge Prometheus retention into cluster-monitoring-config",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "d6bd486781704ac3fd33e456af5ec01eb3b72aae2567b4f0ad6701bab359094a"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Check if StorageCluster exists",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "1fac09962ae8ae3ba11d0c8067cf85a3549d64f75b320edba2a756c575b1810b"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Reduce NooBaa core resources via StorageCluster",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "5fc11f5f57cbb035261d64c5f847df378cabd5d48050dbbd77992c4242a32621"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Check BackingStore current memory request",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "52ba96d5e139c9a41780f946814699a4b61f20ac7104968923b20bdb1777214c"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Patch BackingStore memory to meet MCG minimum",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "fe1b5332a3b5dfcbbcd9357c7142d66815de7d771b63e5e025120caada153209"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Wait for BackingStore to become Ready",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "52ba96d5e139c9a41780f946814699a4b61f20ac7104968923b20bdb1777214c"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Create openshift-storage namespace for LVMS",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "0c30fe1e7425ed0cc352a0bab1fd2a0f477beded818418b3e8fca04f9b988247"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Create CatalogSource for LVMS (snapshot)",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "6d6641282cefec5b182a00cb457af415fcf25dfd8297a06cba1eee36eb3ffa70"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Check if OperatorGroup already exists in namespace",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "5b118df7ae0a58c56a13eeba21c773a3ec84e8cd9a06c8929f9c76e9cf1a8ba3"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Create OperatorGroup for LVMS (only if none exists)",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "bc2b1872a8fb08a1cc4e4d5970042f6d8b9bdc5c50128a80871522ac8a01440c"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Create LVMS Subscription",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "c8b02aa8a2ba2bfca17971c2d7eb732ce2bd27ca2e49a967389e13d44a29d1fa"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Wait for LVMS Subscription to have installedCSV",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "a1c5def4158828701cd9ee95c774850e943cdc285688ea5f837034a6e7dc00f6"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Wait for LVMS CSV to be Succeeded",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "cbe2114882f3ec30f426fde66f756c9a35c4dabfa7769e735677646c18ff523c"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Create LVMCluster with optionalPaths",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "292b6d6737365310d0fcb6fb825333b588e9f46f874541c9ebf6ceb2ed5a5508"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Wait for LVMCluster to be ready",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "377c5fb41978f551d5811137ff5dd213f3e36cf386b7fbc2c72a7c693d2006a8"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Wait for Showroom deployment to exist",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "6a1f2fabce895f2edbb1b3c3a7e1ce88de8ef1e52ee76eea15447b39f5652860"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Create ConfigMap with workshop environment variables",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "a9125fb37bc73f0e5fe2612fd4596607413415530b856dade9fc2e5280c2f6d8"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Create ConfigMap with individual environment variables",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "85baa3c8134d726538f2e60c5fe9f2fca29f982d0d7f4528dc93f8d2bf922186"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Patch Showroom deployment (env vars) in a single patch",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "c8010bacb13bfbad229cd248e6efb03d5783cb8f58e4dc913e10492bfa1c7f8f"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Wait for Showroom deployment to roll out after patching",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "775ccf49b1eba5485428b3c170cbc3af7cc8813e053a45b11a9610e270adb7cb"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Grant cluster-admin to Showroom serviceaccount",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "eff6f0879ae91b660602801bd1dd2226fdb792aa4d1568761b2762db3a444f56"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Fetch Showroom route",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "5e7b8c7a122de3b286e55aaa09d32219c02809bd70af20aea7b639ed593f5c2d"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Create Lightspeed demo namespace",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "bfa6fcd5acdbeff7b3ef8c40d11986185c2193ef1bdeb584e18a1c01c89fffc4"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Deploy faulty pod for Lightspeed troubleshooting",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "7cc6b0d1c5570e27971797a2d30c7c23b4213c7f5790d7b90118884e99f31179"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Create critical namespace for troubleshooting case",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "99b82bae649304962b3a4a1f1b0bca6648c18f55fc25574f28317a374220006b"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Wait for default ServiceAccount in critical namespace",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "214f343b4ccdec2c04ccd2ff86df19353c7b5de9dcdf0355d61eadb22b259372"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Deploy failing Deployment and PDB to trigger PodDisruptionBudgetLimit alert",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "bcf4c53aac8039f0855f474f7038f79330e153f5ea70a3c96a71bd8a4f2039e9"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Pre-create logging UIPlugin",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "24437ecef24baa7fb5e77091439a3ad9547f4417ef18cf371441d68ef20f4870"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_days_ops_track/tasks/workload.yml",
+    "name": "Pre-create distributed-tracing UIPlugin",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "347e40d8ccf2d92cf152400da6d18638c695ea37a911b8cdbc14dd82f4cf9a86"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_hcp_kubevirt/tasks/workload.yml",
+    "name": "Ensure HyperConverged boot image import is enabled",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "0c7e8f1fab7f933953f5c7f20340887f81231c094b4483096e55756ff5963dd0"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_hcp_kubevirt/tasks/workload.yml",
+    "name": "Wait for rhel9 boot source to be Ready",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "ea09cc381e3dae3aac211da8d9de7039f19709a67c7977722f6b3ad93631e208"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_hcp_kubevirt/tasks/workload.yml",
+    "name": "Patch the IngressController to allow wildcard routes",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "e9588ff94296ef283cc5a32a6a3a6045dc129ee255e5d1d534cd6a079b609c75"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_hcp_kubevirt/tasks/workload.yml",
+    "name": "Wait for IngressController to report available",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "5d9ab7ec82b6038eba0a3203ed7b6daa6486668b58f6923fd51a97f76cc01449"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_hcp_kubevirt/tasks/workload.yml",
+    "name": "Wait for all router pods to be Ready",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "4205c0a1a5b6a454cb8a57e0acab72aeeb96b80ec1a57ce97b09199006674e97"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_gitops/tasks/workload.yml",
+    "name": "Grant cluster-admin permissions to Gitops Service account",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "e75f53a79835dbd7873507d1fd3f1a7fa335fe305e5a3d96ab946a6a4b255c6e"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_gitops/tasks/workload.yml",
+    "name": "Wait until openshift-gitops ArgoCD instance has been created",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "5053334e5486596d1d8532e08b98a9a36283fbf5e0943be9d13ddde418963c7b"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_gitops/tasks/workload.yml",
+    "name": "Create the kustomize-envvar plugin configmap",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "9ab1d5805233c1642d652101fcd0fb3fa2529d661dab4150611b28c675c03bdc"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_gitops/tasks/workload.yml",
+    "name": "Update the openshift-gitops ArgoCD instance",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "3b454cc9a80d4891478ae1b6d76605a2eb30b780b123c389c4d1b15d5cca9fbc"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_gitops/tasks/workload.yml",
+    "name": "Create per-user AppProjects",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "aa5bf8693868fc96f6b82a9eb6302b748cd365c11460f84c6f8238b803023eea"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_gitops/tasks/workload.yml",
+    "name": "Get the OpenShift Gitops ArgoCD server route",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "0a17ddece5f46ab4957af15840fb5ea735f5db01e116172ec4a7f16bd80a39d1"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_gitops/tasks/workload.yml",
+    "name": "Try to install the ArgoCD CLI",
+    "occurrence": 0,
+    "module": "get_url",
+    "sha256": "513d43230174deea2ca90e3867b82876d8faf46ce7130e167360e2ee1dd97ff4"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_virtualization/tasks/workload.yml",
+    "name": "Create the HyperConverged instance",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "154f0df30242e9b42e0d95ac100e146eabbbc6fdd75912dd13e27064e59fa795"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_virtualization/tasks/workload.yml",
+    "name": "Wait until HyperConverged is installed",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "4dcd1e1799c55d727e60360fafabb742bc49cdf4a30b39e7fe52de1eb2fe5530"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_virtualization/tasks/workload.yml",
+    "name": "Get all available storage classes",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "8dd818a5f56662dca7b06c257f042b2777e31a630271115738157f6a6c5ed1f3"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_virtualization/tasks/workload.yml",
+    "name": "Patch the storage profile matching the default storage class to use pvc instead of snapshot",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "be7898be0684836166424073ec2d05a6c9f2b0239ac8c26c47366a58d685840e"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_virtualization/tasks/workload.yml",
+    "name": "If we are using Hosted Control Planes, it is needed to set default accessMode, volumeMode and cloneStrategy",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "af3d801223ccddc63bfc32a0591fffde97368e3d71c7518e3da003732cee9db1"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_virtualization/tasks/workload.yml",
+    "name": "Finally patch HyperConverged to import boot sources now using PVCs",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "c617f433e781c0fbf152088377765adfa65d6d7aaaa0d2b39798174fb20981d8"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_virtualization/tasks/workload.yml",
+    "name": "Get virtctl-clidownloads-kubevirt-hyperconverged ConsoleCLIDownload",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "327c0d38b681e0e8629112c98cda9f3873c647cd2347c48e686de1272ddf41de"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_openshift_virtualization/tasks/workload.yml",
+    "name": "Install virtctl CLI on bastion",
+    "occurrence": 0,
+    "module": "unarchive",
+    "sha256": "5e563f2663071778cbac83ef49a12098b534f589205b14069aa1e6fc1946a9ed"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_prepare_hcp/tasks/workload.yml",
+    "name": "Create namespace",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "e27299a5261c9a0b274ba2603340e610f8e174721d01749e64d21d14efd57cd3"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_prepare_hcp/tasks/workload.yml",
+    "name": "Retrieve pull-secret from openshift-config namespace",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "573125df3320587adb16c75731bbb61822035f13edebb144c1e1cec6f7d13d46"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_prepare_hcp/tasks/workload.yml",
+    "name": "Create secret on RHACM (copy of pull-secret)",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "713916b280459571140ebd6a22810bdd1f7d6dcedc4f230115ac195f83bcf7d7"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_prepare_hcp/tasks/workload.yml",
+    "name": "Create policies namespace",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "8f9e88b7ef097402cfb60cb70420a336362688782c25872c5c48ac7ce600c211"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_prepare_hcp/tasks/workload.yml",
+    "name": "Create ManagedClusterSet and policy",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "953cde1baf0117f56a5a66a06368438ae023ddc63001be3b7c7eb77d6ecb110a"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Get Central CR",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "ce4df6bab9b1601bf71d479edd95c01dabf467e442cada644046c7e14cc2fd36"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Set ephemeral-storage request on Central and Scanner so they aren't evicted first under disk pressure",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "83af905c58b9feca11a5cbde995c6d373e1fc597fa2f3301116ce21b0ddfc154"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Get cluster ingress domain",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "6c90db907bcde236c799b718b8ea8425014306ae88af3b97aa499d4a89d4d23e"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Get ingress controller default certificate name",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "5d9ab7ec82b6038eba0a3203ed7b6daa6486668b58f6923fd51a97f76cc01449"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Get ingress certificate secret",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "8fedff3c69779d137cea6fd8688dc03b07d641e623ec03e3e492dced542e98ee"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Get StackRox central TLS secret (internal CA)",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "568887508f5213b3e7a79bfb014d4fc832b4a1dc0f0a53c0a88d7dcabaf1b4fe"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Get cluster trusted CA bundle (public root CAs)",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "c3d4788fdf4826a3c90b7b449d175da873c24e5c3e84bcab08c7b91f20b8c8d6"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Disable Central operator's default routes",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "e42fa2ff8a854be398aa04acae8dff544944a676a3cd60a58778878b61d4e2be"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Wait for default routes to be fully removed",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "a4ce8e487a6f2539dbe9ba4195601df41b695fcb882c85d32f050368bb893985"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Enable native reencrypt route with combined CA trust",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "a8c752225a15cb64dbe8fd4c4f513b450f63cef45a4b43653678ed2f1c78ae75"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Wait for reencrypt route to be admitted",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "bd83603ed87a3b03090b7bfdeb81f53e313a81472fc616b6e55a825fe0a984f3"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_rhacs_console_embed/tasks/workload.yml",
+    "name": "Verify Central is reachable after route switch",
+    "occurrence": 0,
+    "module": "uri",
+    "sha256": "a6a5305d5e450094a6e320d4f8a95edac28b096a500f810e7f3195b7211d0bfb"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_virtualization_boot_image_trim/tasks/workload.yml",
+    "name": "Wait for HyperConverged CR to exist",
+    "occurrence": 0,
+    "module": "k8s_info",
+    "sha256": "4dcd1e1799c55d727e60360fafabb742bc49cdf4a30b39e7fe52de1eb2fe5530"
+  },
+  {
+    "path": "automation/ansible/roles/ocp4_workload_virtualization_boot_image_trim/tasks/workload.yml",
+    "name": "Patch HyperConverged to disable unused default boot images",
+    "occurrence": 0,
+    "module": "k8s",
+    "sha256": "ba934fb6e1ffce4b9b93fc3d05e4b4ea7094bfafa4fdb67e2c65d34ca473dfd8"
+  }
+]

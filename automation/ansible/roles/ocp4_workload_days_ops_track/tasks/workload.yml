@@ -126,13 +126,16 @@
 
 - name: Extract master_url from console route (fallback)
   kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
     kind: Route
     name: console
     namespace: openshift-console
   register: master_url_r
-  retries: 5
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
-  until: master_url_r.resources | length > 0
+  until: >-
+    (master_url_r | deliver_openshift_ops_day.automation.ops_permanent_error) or ((master_url_r is
+    succeeded) and (master_url_r.resources | default([]) | length > 0))
   when: master_url is not defined or master_url == ''
 
 - set_fact:
@@ -146,11 +149,11 @@
     name: cluster
     namespace: default
   register: route_subdomain_r
-  retries: 5
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
-  until:
-    - route_subdomain_r.resources[0].spec.domain is defined
-
+  until: >-
+    (route_subdomain_r | deliver_openshift_ops_day.automation.ops_permanent_error) or ((route_subdomain_r
+    is succeeded) and (route_subdomain_r.resources[0].spec.domain is defined))
 - name: Set route subdomain
   set_fact:
     route_subdomain: "{{ route_subdomain_r.resources[0].spec.domain }}"
@@ -164,7 +167,6 @@
       - "api_url: {{ api_url }}"
       - "master_url: {{ master_url }}"
       - "route_subdomain: {{ route_subdomain }}"
-      - "common_admin_password: {{ common_admin_password | default('not-set') }}"
       - "bastion_fqdn: {{ bastion_fqdn }}"
 
 # ==============================================================================
@@ -501,7 +503,30 @@
 # deletes it once metallb's CSV has succeeded instead.
 # ==============================================================================
 
+- name: Determine whether enabled workloads require the shared snapshot catalog
+  ansible.builtin.set_fact:
+    _ops_day_shared_catalog_required: >-
+      {{ ops_day_shared_catalog_required | default(
+           ((module_enable_gitops | default(true) | bool or module_enable_acm | default(true) | bool)
+            and ocp4_workload_openshift_gitops_use_catalog_snapshot | default(false) | bool)
+           or (module_enable_acm | default(true) | bool
+               and ocp4_workload_metallb_use_catalog_snapshot | default(false) | bool)
+           or (module_enable_devhub | default(true) | bool
+               and ocp4_days_workload_rhdh_use_catalog_snapshot | default(false) | bool)
+           or ((module_enable_security | default(true) | bool or module_enable_ztwim | default(true) | bool)
+               and ocp4_days_workload_ztwim_use_catalog_snapshot | default(false) | bool)
+           or (module_enable_ols | default(true) | bool
+               and ocp5_workload_ols_use_catalog_snapshot | default(false) | bool)
+           or ocp4_workload_web_terminal_use_catalog_snapshot | default(false) | bool) | bool }}
+
 - name: Pre-create shared snapshot CatalogSource with extractContent
+  register: _ops_shared_catalog_create
+  until: >-
+    (_ops_shared_catalog_create | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_shared_catalog_create
+    is succeeded))
+  retries: "{{ ops_day_api_retries | default(120) }}"
+  delay: "{{ ops_day_retry_delay | default(10) }}"
+  when: _ops_day_shared_catalog_required
   kubernetes.core.k8s:
     state: present
     definition:
@@ -522,17 +547,20 @@
             catalogDir: /configs
           memoryTarget: "30Mi"
           securityContextConfig: restricted
-  ignore_errors: true
 
 - name: Wait for shared snapshot CatalogSource to reach READY state
-  shell: |
-    oc get catalogsource redhat-operators-snapshot -n openshift-marketplace \
-      -o jsonpath='{.status.connectionState.lastObservedState}' 2>/dev/null
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: CatalogSource
+    name: redhat-operators-snapshot
+    namespace: openshift-marketplace
   register: r_catalog_state
-  until: r_catalog_state.stdout == "READY"
-  retries: 30
-  delay: 10
-  ignore_errors: true
+  until: >-
+    (r_catalog_state | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_catalog_state
+    is succeeded) and (r_catalog_state | deliver_openshift_ops_day.automation.ops_ready('catalog')))
+  retries: "{{ ops_day_readiness_retries | default(120) }}"
+  delay: "{{ ops_day_retry_delay | default(10) }}"
+  when: _ops_day_shared_catalog_required
 
 - name: DEBUG - All CatalogSources
   shell: |
@@ -1112,6 +1140,12 @@
 # ==============================================================================
 
 - name: Create openshift-storage namespace for LVMS
+  register: _ops_retry_days_ops_track_99
+  until: >-
+    (_ops_retry_days_ops_track_99 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_days_ops_track_99
+    is succeeded) and (_ops_retry_days_ops_track_99 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -1124,6 +1158,12 @@
   when: workshop_deploy_lvms | default(false) | bool
 
 - name: Create CatalogSource for LVMS (snapshot)
+  register: _ops_retry_days_ops_track_100
+  until: >-
+    (_ops_retry_days_ops_track_100 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_days_ops_track_100 is succeeded) and (_ops_retry_days_ops_track_100 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -1141,6 +1181,11 @@
     - workshop_lvms_use_catalog_snapshot | default(false) | bool
 
 - name: Check if OperatorGroup already exists in namespace
+  until: >-
+    (existing_operatorgroup | deliver_openshift_ops_day.automation.ops_permanent_error) or ((existing_operatorgroup
+    is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s_info:
     api_version: operators.coreos.com/v1
     kind: OperatorGroup
@@ -1149,6 +1194,12 @@
   when: workshop_deploy_lvms | default(false) | bool
 
 - name: Create OperatorGroup for LVMS (only if none exists)
+  register: _ops_retry_days_ops_track_102
+  until: >-
+    (_ops_retry_days_ops_track_102 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_days_ops_track_102 is succeeded) and (_ops_retry_days_ops_track_102 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -1165,6 +1216,12 @@
     - existing_operatorgroup.resources | default([]) | length == 0
 
 - name: Create LVMS Subscription
+  register: _ops_retry_days_ops_track_103
+  until: >-
+    (_ops_retry_days_ops_track_103 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_days_ops_track_103 is succeeded) and (_ops_retry_days_ops_track_103 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -1188,12 +1245,12 @@
     name: lvms-operator
     namespace: "{{ workshop_lvms_namespace }}"
   register: lvms_subscription
-  until:
-    - lvms_subscription.resources | length > 0
-    - lvms_subscription.resources[0].status is defined
-    - lvms_subscription.resources[0].status.installedCSV is defined
-    - lvms_subscription.resources[0].status.installedCSV | length > 0
-  retries: 60
+  until: >-
+    (lvms_subscription | deliver_openshift_ops_day.automation.ops_permanent_error) or ((lvms_subscription
+    is succeeded) and (lvms_subscription is succeeded) and (lvms_subscription.resources | default([])
+    | length > 0) and (lvms_subscription.resources[0].status is defined) and (lvms_subscription.resources[0].status.installedCSV
+    is defined) and (lvms_subscription.resources[0].status.installedCSV | length > 0))
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
   when: workshop_deploy_lvms | default(false) | bool
 
@@ -1204,16 +1261,22 @@
     name: "{{ lvms_subscription.resources[0].status.installedCSV }}"
     namespace: "{{ workshop_lvms_namespace }}"
   register: lvms_csv
-  until:
-    - lvms_csv.resources | length > 0
-    - lvms_csv.resources[0].status is defined
-    - lvms_csv.resources[0].status.phase is defined
-    - lvms_csv.resources[0].status.phase == "Succeeded"
-  retries: 60
+  until: >-
+    (lvms_csv | deliver_openshift_ops_day.automation.ops_permanent_error) or ((lvms_csv is succeeded)
+    and (lvms_csv is succeeded) and (lvms_csv.resources | default([]) | length > 0) and (lvms_csv.resources[0].status
+    is defined) and (lvms_csv.resources[0].status.phase is defined) and (lvms_csv.resources[0].status.phase
+    == "Succeeded"))
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
   when: workshop_deploy_lvms | default(false) | bool
 
 - name: Create LVMCluster with optionalPaths
+  register: _ops_retry_days_ops_track_106
+  until: >-
+    (_ops_retry_days_ops_track_106 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_days_ops_track_106 is succeeded) and (_ops_retry_days_ops_track_106 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -1241,12 +1304,12 @@
     name: lvmcluster
     namespace: "{{ workshop_lvms_namespace }}"
   register: lvmcluster_status
-  until:
-    - lvmcluster_status.resources | length > 0
-    - lvmcluster_status.resources[0].status is defined
-    - lvmcluster_status.resources[0].status.state is defined
-    - lvmcluster_status.resources[0].status.state == "Ready"
-  retries: 60
+  until: >-
+    (lvmcluster_status | deliver_openshift_ops_day.automation.ops_permanent_error) or ((lvmcluster_status
+    is succeeded) and (lvmcluster_status is succeeded) and (lvmcluster_status.resources | default([])
+    | length > 0) and (lvmcluster_status.resources[0].status is defined) and (lvmcluster_status.resources[0].status.state
+    is defined) and (lvmcluster_status.resources[0].status.state == "Ready"))
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
   when: workshop_deploy_lvms | default(false) | bool
 
@@ -1272,11 +1335,14 @@
 
 - name: Wait for Showroom deployment to exist
   kubernetes.core.k8s_info:
+    api_version: apps/v1
     kind: Deployment
     namespace: "{{ showroom_namespace }}"
   register: showroom_deployment_r
-  until: showroom_deployment_r.resources | length > 0
-  retries: 10
+  until: >-
+    (showroom_deployment_r | deliver_openshift_ops_day.automation.ops_permanent_error) or ((showroom_deployment_r
+    | deliver_openshift_ops_day.automation.ops_ready('deployment')))
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
 
 - name: Read workshop settings file from bastion
@@ -1285,6 +1351,12 @@
   register: workshop_settings_content
 
 - name: Create ConfigMap with workshop environment variables
+  register: _ops_retry_days_ops_track_113
+  until: >-
+    (_ops_retry_days_ops_track_113 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_days_ops_track_113 is succeeded) and (_ops_retry_days_ops_track_113 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -1308,6 +1380,12 @@
       {{ result }}
 
 - name: Create ConfigMap with individual environment variables
+  register: _ops_retry_days_ops_track_115
+  until: >-
+    (_ops_retry_days_ops_track_115 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_days_ops_track_115 is succeeded) and (_ops_retry_days_ops_track_115 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -1440,6 +1518,12 @@
 # it back or Kubernetes will reject the patch (image field is required).
 # ==============================================================================
 - name: Patch Showroom deployment (env vars) in a single patch
+  register: _ops_retry_days_ops_track_120
+  until: >-
+    (_ops_retry_days_ops_track_120 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_days_ops_track_120 is succeeded) and (_ops_retry_days_ops_track_120 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: patched
     definition:
@@ -1518,16 +1602,15 @@
 
 - name: Wait for Showroom deployment to roll out after patching
   kubernetes.core.k8s_info:
+    api_version: apps/v1
     kind: Deployment
     namespace: "{{ showroom_namespace }}"
     name: showroom
   register: showroom_deployment_patched
-  until:
-    - showroom_deployment_patched.resources[0].status.updatedReplicas is defined
-    - showroom_deployment_patched.resources[0].status.updatedReplicas == showroom_deployment_patched.resources[0].spec.replicas
-    - showroom_deployment_patched.resources[0].status.readyReplicas is defined
-    - showroom_deployment_patched.resources[0].status.readyReplicas == showroom_deployment_patched.resources[0].spec.replicas
-  retries: 30
+  until: >-
+    (showroom_deployment_patched | deliver_openshift_ops_day.automation.ops_permanent_error) or ((showroom_deployment_patched
+    | deliver_openshift_ops_day.automation.ops_ready('deployment')))
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
 
 - name: Wait for Showroom pod to be fully ready
@@ -1667,6 +1750,11 @@
 # ==============================================================================
 
 - name: Grant cluster-admin to Showroom serviceaccount
+  until: >-
+    (clusterrolebinding | deliver_openshift_ops_day.automation.ops_permanent_error) or ((clusterrolebinding
+    is succeeded) and (clusterrolebinding is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     definition:
@@ -1686,15 +1774,18 @@
         kind: ClusterRole
         name: cluster-admin
   register: clusterrolebinding
-
 - name: Fetch Showroom route
+  until: >-
+    (Route | deliver_openshift_ops_day.automation.ops_permanent_error) or ((Route is succeeded) and
+    (Route | deliver_openshift_ops_day.automation.ops_ready('route')))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s_info:
     api_version: route.openshift.io/v1
     kind: Route
     name: showroom
     namespace: "{{ showroom_namespace }}"
   register: Route
-
 - name: Publish workshop data for info-message-template rendering
   agnosticd.core.agnosticd_user_info:
     data:
@@ -1774,8 +1865,10 @@
             name: default
             namespace: critical
           register: r_sa_critical
-          until: r_sa_critical.resources | length > 0
-          retries: 10
+          until: >-
+            (r_sa_critical | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_sa_critical
+            is succeeded) and (r_sa_critical.resources | default([]) | length > 0))
+          retries: '{{ ops_day_readiness_retries | default(400) }}'
           delay: 3
 
         - name: Deploy failing Deployment and PDB to trigger PodDisruptionBudgetLimit alert

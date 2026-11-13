@@ -22,6 +22,15 @@ ocp4_workload_metallb_automatic_install_plan_approval: true
 ocp4_workload_metallb_starting_csv: ""
 # ocp4_workload_metallb_starting_csv: "v4.20.0-202509271248"
 
+# Retry API/webhook failures without nesting the module's internal wait.
+# Slow CNV catalogs/CSV reconciliation/readiness each get ~20 minutes.
+# Resource creation gets ~5 minutes; budgets exclude API request duration.
+ocp4_workload_metallb_catalog_wait_retries: 120
+ocp4_workload_metallb_install_retries: 120
+ocp4_workload_metallb_create_retries: 30
+ocp4_workload_metallb_readiness_retries: 120
+ocp4_workload_metallb_retry_delay: 10
+
 # Configure IPAddressPool
 ocp4_workload_metallb_enable_ipaddresspool: false
 ocp4_workload_metallb_ipaddresspool_name: ip-addresspool

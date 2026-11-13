@@ -11,8 +11,7 @@
 # doesn't need.
 - name: Nothing to trim, skip
   when: ocp4_workload_virtualization_boot_image_trim_disabled_images | length == 0
-  ansible.builtin.meta: end_host
-
+  ansible.builtin.meta: end_role
 - name: Wait for HyperConverged CR to exist
   kubernetes.core.k8s_info:
     api_version: hco.kubevirt.io/v1beta1
@@ -20,9 +19,14 @@
     name: kubevirt-hyperconverged
     namespace: openshift-cnv
   register: r_hco
-  retries: 30
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
-  until: r_hco.resources | length > 0
+  until: >-
+    (r_hco | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_hco is succeeded) and
+    (r_hco.resources | default([]) | length > 0))
+- name: Reset boot image overrides for this invocation
+  ansible.builtin.set_fact:
+    _ocp4_workload_virtualization_boot_image_trim_overrides: []
 
 - name: Build disabled boot image DataImportCron overrides
   ansible.builtin.set_fact:
@@ -32,6 +36,12 @@
   loop: "{{ ocp4_workload_virtualization_boot_image_trim_disabled_images }}"
 
 - name: Patch HyperConverged to disable unused default boot images
+  register: _ops_retry_virtualization_boot_image_trim_3
+  until: >-
+    (_ops_retry_virtualization_boot_image_trim_3 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_virtualization_boot_image_trim_3 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: patched
     api_version: hco.kubevirt.io/v1beta1

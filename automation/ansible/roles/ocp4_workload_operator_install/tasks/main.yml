@@ -1,0 +1,63 @@
+---
+# Local wrapper for selected Ops Day roles, not a change to the global installer.
+# The caller supplies the same install_operator_* parameters as before.
+- name: Invoke operator installer with bounded CSV convergence grace
+  block:
+    - name: Install requested operator
+      ansible.builtin.include_role:
+        name: install_operator
+      vars:
+        install_operator_install_csv_ignore_error: false
+  rescue:
+    - name: Only extend the final CSV convergence wait
+      ansible.builtin.assert:
+        that:
+          - ansible_failed_task.action in ['kubernetes.core.k8s_info', 'k8s_info']
+          - ansible_failed_task.name is match('Wait until CSV is installed')
+          - ansible_failed_task.register == 'r_csv'
+          - ansible_failed_result.status | default(0) | int not in [401, 403]
+          - not (ansible_failed_result.msg | default('') is search('(?i)forbidden|unauthorized|permission denied'))
+        quiet: true
+        fail_msg: >-
+          Operator installation failed outside the final CSV convergence wait.
+          See the original task failure. Configuration, authorization and
+          unrelated errors are not suppressed or retried by this wrapper.
+
+    - name: Explain local convergence grace
+      ansible.builtin.debug:
+        msg: >-
+          Continuing the final CSV convergence wait with finite local polling.
+          The installer is not rerun, and readiness failure remains fatal.
+
+- name: Wait for the requested Subscription to resolve without installation errors
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: "{{ install_operator_name }}"
+    namespace: "{{ install_operator_namespace }}"
+  register: _ops_installer_subscription
+  vars:
+    _ops_installer_status: >-
+      {{ (_ops_installer_subscription.resources | default([]) | first | default({})).get('status', {}) }}
+  until: >-
+    (_ops_installer_subscription | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_installer_subscription
+    | deliver_openshift_ops_day.automation.ops_ready) and (_ops_installer_status.get('currentCSV',
+    '') | length > 0) and (_ops_installer_status.get('conditions', []) | selectattr('type', 'defined')
+    | selectattr('type', 'in', ['ResolutionFailed', 'InstallPlanFailed']) | selectattr('status', 'defined')
+    | selectattr('status', 'equalto', 'True') | list | length == 0))
+  retries: "{{ ops_day_readiness_retries | default(120) }}"
+  delay: "{{ ops_day_retry_delay | default(10) }}"
+
+- name: Wait for the Subscription-selected CSV to succeed
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: ClusterServiceVersion
+    name: "{{ _ops_installer_subscription.resources[0].status.currentCSV }}"
+    namespace: "{{ install_operator_namespace }}"
+  register: _ops_installer_csv
+  until: >-
+    (_ops_installer_csv | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_installer_csv
+    | deliver_openshift_ops_day.automation.ops_ready) and (_ops_installer_csv.resources[0].status.phase
+    | default('') == 'Succeeded'))
+  retries: "{{ ops_day_readiness_retries | default(120) }}"
+  delay: "{{ ops_day_retry_delay | default(10) }}"

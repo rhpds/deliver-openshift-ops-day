@@ -1,0 +1,43 @@
+---
+- name: Install Compliance with a local CSV convergence grace period
+  block:
+    - name: Invoke Compliance installer
+      ansible.builtin.include_role:
+        name: install_operator
+      vars:
+        install_operator_action: install
+        install_operator_name: compliance-operator
+        install_operator_namespace: "{{ ocp4_days_workload_compliance_operator_namespace }}"
+        install_operator_channel: "{{ ocp4_days_workload_compliance_operator_channel }}"
+        install_operator_automatic_install_plan_approval: "{{ ocp4_days_workload_compliance_operator_automatic_install_plan_approval }}"
+        install_operator_catalogsource_setup: "{{ ocp4_days_workload_compliance_operator_use_catalog_snapshot }}"
+        install_operator_catalogsource_name: "{{ ocp4_days_workload_compliance_operator_catalogsource_name }}"
+        install_operator_catalogsource_image: "{{ ocp4_days_workload_compliance_operator_catalog_snapshot_image }}"
+        install_operator_catalogsource_image_tag: "{{ ocp4_days_workload_compliance_operator_catalog_snapshot_image_tag }}"
+        install_operator_install_csv_ignore_error: false
+
+  rescue:
+    # The shared installer has a fixed CSV wait. Only that final read-only
+    # convergence wait may be continued by our mandatory local readiness gate.
+    # Never retry the whole installer, suppress arbitrary failures, or approve
+    # extra InstallPlans as a side effect of extending a readiness deadline.
+    - name: Only defer an installer CSV convergence timeout
+      ansible.builtin.assert:
+        that:
+          - ansible_failed_task.action in ['kubernetes.core.k8s_info', 'k8s_info']
+          - ansible_failed_task.name is match('Wait until CSV is installed')
+          - ansible_failed_task.register == 'r_csv'
+          - ansible_failed_result.status | default(0) | int not in [401, 403]
+          - not (ansible_failed_result.msg | default('') is search('(?i)forbidden|unauthorized|permission denied'))
+        quiet: true
+        fail_msg: >-
+          Compliance installer failed before safe CSV convergence recovery.
+          See the original task failure; configuration, approval and permission
+          errors are not suppressed or retried by the local readiness gate.
+
+    - name: Explain the bounded Compliance CSV grace period
+      ansible.builtin.debug:
+        msg: >-
+          The installer's CSV wait expired. Continuing with the mandatory local
+          Subscription/CSV/Deployment readiness checks and their finite retry
+          budgets. Provisioning still fails if those checks cannot converge.

@@ -39,6 +39,12 @@
     msg: "Patching IngressController for wildcard routes"
 
 - name: Patch the IngressController to allow wildcard routes
+  register: _ops_retry_hcp_kubevirt_3
+  until: >-
+    (_ops_retry_hcp_kubevirt_3 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_hcp_kubevirt_3
+    is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: patched
     namespace: openshift-ingress-operator
@@ -61,12 +67,14 @@
     name: default
     namespace: openshift-ingress-operator
   register: r_ingress_controller
-  until:
-    - r_ingress_controller.resources | length > 0
-    - r_ingress_controller.resources[0].status.availableReplicas is defined
-    - r_ingress_controller.resources[0].status.availableReplicas | int == r_ingress_controller.resources[0].spec.replicas | default(2) | int
-    - r_ingress_controller.resources[0].status.conditions | default([]) | selectattr('type', 'equalto', 'Progressing') | selectattr('status', 'equalto', 'False') | list | length > 0
-  retries: 60
+  until: >-
+    (r_ingress_controller | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_ingress_controller
+    | deliver_openshift_ops_day.automation.ops_ready) and (r_ingress_controller.resources[0].status.availableReplicas
+    | default(0) | int >= 1) and (r_ingress_controller.resources[0].status.availableReplicas | default(0)
+    | int == r_ingress_controller.resources[0].spec.replicas | default(2) | int) and (r_ingress_controller.resources[0].status.conditions
+    | default([]) | selectattr('type', 'equalto', 'Progressing') | selectattr('status', 'equalto',
+    'False') | list | length > 0))
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
 
 - name: Wait for all router pods to be Ready
@@ -77,10 +85,10 @@
     label_selectors:
       - ingresscontroller.operator.openshift.io/deployment-ingresscontroller=default
   register: r_router_pods
-  until:
-    - r_router_pods.resources | length > 0
-    - r_router_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length == r_router_pods.resources | length
-  retries: 60
+  until: >-
+    (r_router_pods | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_router_pods
+    | deliver_openshift_ops_day.automation.ops_ready('pods')))
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
 
 - name: Display router stabilization status
