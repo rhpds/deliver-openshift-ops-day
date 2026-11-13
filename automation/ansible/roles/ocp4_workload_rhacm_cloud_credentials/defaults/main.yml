@@ -10,6 +10,13 @@ ocp4_token: CHANGEME
 ssh_privatekey: CHANGEME
 ssh_publickey: CHANGEME
 
+# Bound idempotent credential writes and HCP API readiness on slow CNV clusters.
+# Writes: ~20 minutes; HCP readiness: retain its existing ~30 minute budget.
+# These exclude individual API request duration and apply separately per stage.
+ocp4_workload_rhacm_cloud_credentials_api_retries: 120
+ocp4_workload_rhacm_cloud_credentials_hcp_wait_retries: 180
+ocp4_workload_rhacm_cloud_credentials_retry_delay: 10
+
 ocp4_workload_rhacm_cloud_credentials_namespace: open-cluster-management
 
 # Azure Cloud credentials

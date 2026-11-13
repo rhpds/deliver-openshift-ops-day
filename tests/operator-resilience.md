@@ -3,8 +3,9 @@
 ## Scope
 
 This branch is based on `dev` and retains the merged HCO readiness logic.
-It hardens the copied Compliance and MetalLB roles and corrects/extends the
-virtctl route/API-proxy fallback after job 92239 exposed a hostname lookup bug.
+It hardens the copied Compliance, MetalLB and ACM cloud-credentials roles and
+corrects/extends the virtctl route/API-proxy fallback after job 92239 exposed
+a hostname lookup bug.
 It does not change operator versions, cluster resource specifications, module
 selection, IP pool/advertisement templates, lab content, preflight, or global
 `install_operator` behavior.
@@ -68,6 +69,27 @@ selection, IP pool/advertisement templates, lab content, preflight, or global
   was verified to fail on pre-fix code. Tests also cover custom/unrelated hosts,
   ambiguous/missing backends, delayed Route discovery/endpoint readiness and
   transient download failures.
+
+### ACM credential writes and HCP discovery (job 92272)
+
+- ACM MultiClusterHub readiness completed; the next KubeVirt credential task
+  failed patching a Namespace because the Tekton namespace-validation webhook
+  had no endpoints (HTTP 500). This is an admission dependency failure, not
+  evidence that ACM itself failed to install.
+- Retry state:present AWS, Azure and KubeVirt credential writes with a finite
+  configurable ~20-minute budget. KubeVirt retries replay the same materialized
+  Namespace/Secret documents, preserving names, labels and credential data.
+  No webhook is disabled and no required credential step is skipped.
+- Suppress raw credential write/read results and remove the existing debug
+  output of a pull-secret prefix. Diagnostic metadata remains available.
+- Review also found HCP CLI discovery querying Deployment in apiVersion v1;
+  correct it to apps/v1. Poll the API request itself, require fresh Deployment
+  readiness, and wait for the actual Linux URL rather than CR existence only.
+  Preserve the previous ~30-minute Deployment budget with configurable polling.
+- Tests render actual templates with synthetic credentials and verify identical
+  retry payloads, provider flags, permanent failures, healthy reruns, missing
+  HCP statuses/links and secret suppression. These do not prove that the Tekton
+  webhook recovered on the failed cluster or that the new job completes.
 
 ## Offline tests
 
