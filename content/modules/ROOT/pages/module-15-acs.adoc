@@ -14,7 +14,7 @@ By the end of this module, you will:
 * Setup compliance reporting and compliance checks
 * Scan workloads with Red Hat Advanced Cluster Security (RHACS)
 * Detect a file change with file activity monitoring
-* Ask OpenShift Lightspeed about a vulnerability RHACS has already found
+* If OpenShift Lightspeed is enabled in this environment, ask it about a vulnerability RHACS has already found
 
 == Ensure access to the ACS console
 
@@ -32,9 +32,9 @@ RHACS administrator login credentials:
 
 == Set up the ACS module
 
-The setup script in the demo applications repository deploys the workloads for this module. It also turns on the RHACS 5 pieces the later sections use: file activity monitoring, the ACS MCP server for OpenShift Lightspeed when an `OLSConfig` already exists, and Lightspeed-assisted risk enrichment. Risk enrichment lets RHACS explain a deployment risk score with the OpenShift Lightspeed model on this cluster. It does not turn on init-container evaluation.
+The setup script in the demo applications repository deploys the workloads for this module. It also turns on file activity monitoring for this cluster. OpenShift Lightspeed is not part of every environment -- when it is, and an `OLSConfig` already exists, the script additionally registers the ACS MCP server and turns on Lightspeed-assisted risk enrichment, which lets RHACS explain a deployment risk score with the Lightspeed model on this cluster. It does not turn on init-container evaluation.
 
-If you complete the Lightspeed module after this one, run the script again. The second run registers the MCP server, enables risk enrichment, and leaves the workloads in place.
+If OpenShift Lightspeed is enabled in this environment and you complete that module after this one, run the setup script again. The second run registers the MCP server, enables risk enrichment, and leaves the workloads in place. If Lightspeed is not enabled here, skip the "Ask Lightspeed about a RHACS finding" section below.
 
 .Procedure
 . Run the setup script from your home directory:
@@ -436,6 +436,8 @@ oc debug -n acs-fam-demo deploy/fam-target --as-root -- touch /etc/passwd
 Open the violation and review the file path, process, deployment, and time.
 
 == Ask Lightspeed about a RHACS finding
+
+NOTE: This section applies only if OpenShift Lightspeed is enabled in this environment. If there is no Lightspeed chat icon in the console and no Lightspeed module in this workshop, skip ahead to the Clean up section below.
 
 OpenShift Lightspeed can answer questions about the cluster in the console. The setup script registers an ACS MCP server named `acs-mcp` on the `OLSConfig` from the Lightspeed module, so the chat can ask RHACS about the cluster. The Log4Shell workload you deployed is a concrete finding to check: RHACS should report CVE-2021-44228 on that image, and Lightspeed should be able to talk about the same CVE.
 
