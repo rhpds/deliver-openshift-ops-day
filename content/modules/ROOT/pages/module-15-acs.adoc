@@ -109,6 +109,8 @@ spec:
 EOF
 ----
 +
+NOTE: This triggers a cluster-wide MachineConfig rollout, which reboots nodes one at a time. You may see pods across the cluster - including ACS components - briefly restart or report `Unhealthy` during this time. This is expected and resolves on its own within a few minutes.
++
 . Check that your changes have been accepted:
 +
 [source,bash,subs="+macros,+attributes",role=execute]
