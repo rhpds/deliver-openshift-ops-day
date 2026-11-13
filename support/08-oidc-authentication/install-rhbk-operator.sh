@@ -6,18 +6,22 @@ set -euo pipefail
 # we deploy the keycloak-rhel9 image directly. start-dev uses an in-memory H2
 # database — ephemeral but sufficient for the OIDC lab exercise.
 
-ADMIN_PASSWORD="$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)"
-
 oc create namespace rhbk 2>/dev/null || true
 
-# Admin credentials — matches the secret name the lab scripts expect
-oc create secret generic keycloak-initial-admin \
-  --from-literal=username=admin \
-  --from-literal=password="${ADMIN_PASSWORD}" \
-  -n rhbk 2>/dev/null || \
-oc patch secret keycloak-initial-admin -n rhbk \
-  -p "{\"stringData\":{\"username\":\"admin\",\"password\":\"${ADMIN_PASSWORD}\"}}" \
-  --type=merge
+# Admin credentials — matches the secret name the lab scripts expect.
+# Generated only when the secret doesn't already exist. The Deployment below
+# reads KEYCLOAK_ADMIN_PASSWORD from this secret once, at pod start — if this
+# script is re-run (e.g. after an earlier error) and rotates the password on
+# an existing secret without also restarting the pod, the secret and the
+# live Keycloak admin password silently desync, and every later script that
+# authenticates as admin starts failing with "Invalid user credentials".
+if ! oc get secret keycloak-initial-admin -n rhbk >/dev/null 2>&1; then
+  ADMIN_PASSWORD="$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)"
+  oc create secret generic keycloak-initial-admin \
+    --from-literal=username=admin \
+    --from-literal=password="${ADMIN_PASSWORD}" \
+    -n rhbk
+fi
 
 oc apply -f - <<EOF
 apiVersion: v1
