@@ -4,11 +4,13 @@
 
 This branch is based on `dev` and retains the merged HCO readiness logic.
 It hardens the copied Compliance, MetalLB and ACM cloud-credentials roles and
-corrects/extends the virtctl route/API-proxy fallback after job 92239 exposed
-a hostname lookup bug.
+the remaining audited RHDH, HCP, observability, GitOps, RHACS, Vault and later
+HCO API paths. It also corrects/extends the virtctl fallback after job 92239
+exposed a hostname lookup bug, and makes preflight/shared-catalog gates useful.
 It does not change operator versions, cluster resource specifications, module
-selection, IP pool/advertisement templates, lab content, preflight, or global
-`install_operator` behavior.
+selection, IP pool/advertisement templates, lab content, or the global
+`install_operator` implementation. Ansible Core >=2.18 is required and declared
+in collection runtime metadata; both 2.18.20 and 2.19.15 are tested.
 
 ### Compliance
 
@@ -91,6 +93,57 @@ selection, IP pool/advertisement templates, lab content, preflight, or global
   HCP statuses/links and secret suppression. These do not prove that the Tekton
   webhook recovered on the failed cluster or that the new job completes.
 
+### Broad hardening after the remaining-path audit
+
+- Safe API writes use finite retries; read gates tolerate failed queries, absent
+  resources and missing controller status. Authorization/validation errors
+  (clear HTTP 400/401/403/405/415/422) stay fatal without repeated retries;
+  404/discovery lag, conflicts, throttling and 5xx retain bounded recovery.
+- New collection-local filters check actual Deployment availability and observed
+  generation, Pod Ready (not merely Running), current node configurations,
+  MachineConfigPool convergence, KubeletConfig controller observation, OLM
+  readiness, admitted Routes and populated Secret/ConfigMap data. They do not
+  mutate the cluster or print credential contents.
+- Preflight no longer ignores KubeletConfig application or final pool/node/OLM
+  readiness failures. Final gates run on every provision retry, including when
+  the KubeletConfig itself is unchanged. The initial rollout-start observation
+  remains advisory; final convergence is mandatory. Existing ~30-minute pool
+  budget is preserved.
+- Shared catalog creation/readiness is required when enabled snapshot consumers
+  need it; explicit ops_day_shared_catalog_required can override detection.
+  The companion dev config aligns bootstrap with its existing v5.0 consumers
+  instead of starting the older common.yaml catalog and replacing it mid-run.
+- RHDH, ZTWIM and copied GitOps use a collection-local wrapper around the shared
+  installer. Only its final read-only CSV wait can receive grace, followed by
+  mandatory Subscription/selected-CSV gates. No whole-installer retry and no
+  new automatic approval. ZTWIM cannot ignore readiness then declare success.
+- RHDH URL fallbacks are conditional, retried reads rather than eager pipe
+  lookups. Token minting is not blindly retried; token-bearing results are
+  suppressed. Vault Helm installation remains a single operation with a
+  configurable 30-minute convergence deadline, not nested install retries.
+- RHACS route-switch ordering is preserved. Default-route removal checks only
+  its two owned routes; new route admission is actually verified. Already
+  configured RHACS and disabled boot-image trimming end only the role, not the
+  host. Boot-image override generation resets its temporary list on each run.
+- Optional diagnostics/cache warmup and intentionally faulty demo resources
+  retain their existing semantics. No admission webhook is disabled.
+
+New polling controls (finite attempt budgets, not total job deadlines):
+
+- ops_day_api_retries: default 120 for the new API paths.
+- ops_day_retry_delay: default 10 seconds for the new polling paths.
+- ops_day_readiness_retries: optional override; defaults retain longer existing
+  waits or give short waits ~20 minutes at their original polling interval.
+- ops_day_preflight_pool_retries: default 90 at 20 seconds (~30 minutes).
+- ops_day_packageserver_retries: default 60 at 20 seconds (~20 minutes).
+- ops_day_helm_timeout: default 30m, one Helm operation.
+
+Actual elapsed time also includes API/CLI request duration, and stage budgets
+are cumulative. Retry warnings in Ansible output are expected; permanent or
+exhausted failures remain fatal. External core_workloads/ai_workloads role
+internals, arbitrary shell actions and all future operator combinations are
+not claimed universally hardened by this collection-local patch.
+
 ## Offline tests
 
 Only Kubernetes API calls (and the external installer invocation in ownership
@@ -142,11 +195,9 @@ yamllint -d '{extends: default, rules: {line-length: disable, indentation: {spac
 
 ## Deliberately separate follow-ups
 
-Second review confirmed the preflight still ignores some failures and skips
-rollout waits on unchanged KubeletConfig, and the shared catalog bootstrap still
-ignores creation/readiness failures. These are real remaining risks: slower
-startup alone is not evidence of their exact role in a failed run.
-Strict MachineConfig preflight and shared CatalogSource ownership/pin alignment
-need their own compatibility review and fresh-cluster tests. These roles still
-rely on the external `install_operator` implementation for OLM installation.
+The new preflight, shared-catalog gating and companion dev pin alignment need
+fresh-cluster validation. Other consumers may deliberately use different
+catalog pins; full cross-role catalog ownership and external installer/core
+role internals remain separate compatibility concerns. The failed-job evidence
+establishes specific webhook races, not the cause of every slow startup.
 This branch does not claim to eliminate every intermittent operator failure.

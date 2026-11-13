@@ -4,21 +4,28 @@
     msg: "Setting up workload for user ocp_username = {{ ocp_username }}"
 
 - name: Create MultCluster Observability Namespace
+  register: _ops_retry_acm_multicluster_observability_1
+  until: >-
+    (_ops_retry_acm_multicluster_observability_1 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_acm_multicluster_observability_1 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   k8s:
     state: present
     definition: "{{ lookup('template','./templates/namespace_create.yml.j2') | from_yaml }}"
 
 - name: Get pull-secret from openshift-config
+  no_log: true
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: pull-secret
     namespace: openshift-config
   register: pullsecret
-  retries: 10
+  retries: '{{ ops_day_readiness_retries | default(240) }}'
   delay: 5
-  until: pullsecret | length > 0
-
+  until: >-
+    (pullsecret | deliver_openshift_ops_day.automation.ops_permanent_error) or (pullsecret | deliver_openshift_ops_day.automation.ops_data_ready(['.dockerconfigjson']))
 - name: Get the original cred secrets
   set_fact:
     original_secret: "{{ item.data }}"
@@ -26,10 +33,18 @@
   no_log: true
 
 - name: Get the dockerconfigjson info
+  no_log: true
   set_fact:
     secret_string: '{{ original_secret[".dockerconfigjson"] | b64decode | from_json }}'
 
 - name: Create new secret
+  register: _ops_retry_acm_multicluster_observability_5
+  until: >-
+    (_ops_retry_acm_multicluster_observability_5 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_acm_multicluster_observability_5 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
+  no_log: true
   k8s:
     state: present
     definition:
@@ -72,12 +87,19 @@
     name: noobaa
     namespace: openshift-storage
   register: r_noobaa
-  until:
-    - r_noobaa.resources.0.status.phase == "Ready"
-  retries: 30
+  until: >-
+    (r_noobaa | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_noobaa | deliver_openshift_ops_day.automation.ops_ready)
+    and (r_noobaa.resources[0].status.phase | default('') == 'Ready'))
+  retries: '{{ ops_day_readiness_retries | default(40) }}'
   delay: 30
 
 - name: Create Object Bucket Claim
+  register: _ops_retry_acm_multicluster_observability_9
+  until: >-
+    (_ops_retry_acm_multicluster_observability_9 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_acm_multicluster_observability_9 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   k8s:
     state: present
     definition: "{{ lookup('template','./templates/obc-observability.yml.j2') | from_yaml }}"
@@ -91,11 +113,9 @@
   register: r_bucket_cm
   retries: 120
   delay: 10
-  until:
-    - r_bucket_cm is defined
-    - r_bucket_cm.resources is defined
-    - r_bucket_cm.resources | length > 0
-
+  until: >-
+    (r_bucket_cm | deliver_openshift_ops_day.automation.ops_permanent_error) or (r_bucket_cm | deliver_openshift_ops_day.automation.ops_data_ready(['BUCKET_NAME',
+    'BUCKET_HOST', 'BUCKET_PORT']))
 - name: Get Bucket information part 2
   k8s_info:
     api_version: v1
@@ -105,17 +125,28 @@
   register: r_bucket_secret
   retries: 120
   delay: 10
-  until:
-    - r_bucket_secret is defined
-    - r_bucket_secret.resources is defined
-    - r_bucket_secret.resources | length > 0
-
+  until: >-
+    (r_bucket_secret | deliver_openshift_ops_day.automation.ops_permanent_error) or (r_bucket_secret
+    | deliver_openshift_ops_day.automation.ops_data_ready(['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY']))
 - name: Create Thanos Object Storage Secret
+  register: _ops_retry_acm_multicluster_observability_12
+  until: >-
+    (_ops_retry_acm_multicluster_observability_12 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_acm_multicluster_observability_12 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
+  no_log: true
   k8s:
     state: present
     definition: "{{ lookup('template','./templates/thanos-object-storage-secret.yml.j2') | from_yaml }}"
 
 - name: Create MultiCluster Observability for ACM
+  register: _ops_retry_acm_multicluster_observability_13
+  until: >-
+    (_ops_retry_acm_multicluster_observability_13 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_acm_multicluster_observability_13 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   k8s:
     state: present
     definition: "{{ lookup('template','./templates/multiclusterobservability-cr.yml.j2') | from_yaml }}"

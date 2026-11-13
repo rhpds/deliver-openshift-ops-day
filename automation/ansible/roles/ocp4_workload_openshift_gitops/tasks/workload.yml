@@ -5,7 +5,7 @@
 
 - name: Install OpenShift GitOps operator
   ansible.builtin.include_role:
-    name: install_operator
+    name: deliver_openshift_ops_day.automation.ocp4_workload_operator_install
   vars:
     install_operator_action: install
     install_operator_name: openshift-gitops-operator
@@ -22,6 +22,12 @@
     install_operator_subscription_config: "{{ ocp4_workload_openshift_gitops_subscription_config }}"
 
 - name: Grant cluster-admin permissions to Gitops Service account
+  register: _ops_retry_openshift_gitops_2
+  until: >-
+    (_ops_retry_openshift_gitops_2 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_openshift_gitops_2 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   when: ocp4_workload_openshift_gitops_setup_cluster_admin | bool
   kubernetes.core.k8s:
     state: present
@@ -34,25 +40,42 @@
     name: openshift-gitops
     namespace: openshift-gitops
   register: r_openshift_gitops
-  retries: 16
+  retries: '{{ ops_day_readiness_retries | default(20) }}'
   delay: 60
-  until:
-  - r_openshift_gitops is defined
-  - r_openshift_gitops.resources is defined
-  - r_openshift_gitops.resources | length == 1
-
+  until: >-
+    (r_openshift_gitops | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_openshift_gitops
+    is succeeded) and (r_openshift_gitops is defined) and (r_openshift_gitops.resources | default([])
+    is defined) and (r_openshift_gitops.resources | default([]) | length == 1))
 - name: Create the kustomize-envvar plugin configmap
+  register: _ops_retry_openshift_gitops_4
+  until: >-
+    (_ops_retry_openshift_gitops_4 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_openshift_gitops_4 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   when: ocp4_workload_openshift_gitops_kustomize_plugin | bool
   kubernetes.core.k8s:
     state: present
     src: cm-kustomize-envvar.yaml
 
 - name: Update the openshift-gitops ArgoCD instance
+  register: _ops_retry_openshift_gitops_5
+  until: >-
+    (_ops_retry_openshift_gitops_5 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_openshift_gitops_5 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: patched
     template: openshift-gitops.yaml.j2
 
 - name: Create per-user AppProjects
+  register: _ops_retry_openshift_gitops_6
+  until: >-
+    (_ops_retry_openshift_gitops_6 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_openshift_gitops_6 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   when: ocp4_workload_openshift_gitops_per_user_access | bool
   kubernetes.core.k8s:
     state: present
@@ -67,13 +90,17 @@
   when: ocp4_workload_openshift_gitops_install_cli_tools | bool
   block:
   - name: Get the OpenShift Gitops ArgoCD server route
+    until: >-
+      (r_openshift_gitops_server_route | deliver_openshift_ops_day.automation.ops_permanent_error) or
+      ((r_openshift_gitops_server_route | deliver_openshift_ops_day.automation.ops_ready('route')))
+    retries: '{{ ops_day_api_retries | default(120) }}'
+    delay: '{{ ops_day_retry_delay | default(10) }}'
     kubernetes.core.k8s_info:
       api_version: route.openshift.io/v1
       kind: Route
       name: openshift-gitops-server
       namespace: openshift-gitops
     register: r_openshift_gitops_server_route
-
   - name: Try to install the ArgoCD CLI
     become: true
     delegate_to: "{{ groups['bastions'][0] }}"

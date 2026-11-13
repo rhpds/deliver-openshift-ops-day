@@ -88,6 +88,9 @@ class OperatorResilienceTests(unittest.TestCase):
             (tmp / 'library').mkdir()
             (tmp / 'library/api_stub.py').write_text(STUB)
             (tmp / 'sequences.json').write_text(json.dumps(sequences))
+            collection = tmp / 'collections/ansible_collections/deliver_openshift_ops_day'
+            collection.mkdir(parents=True)
+            (collection / 'automation').symlink_to(ROOT / 'automation/ansible', target_is_directory=True)
             if upstream_task is not None:
                 # Execute a real include_role/rescue with the upstream task's
                 # action/name/register shape, not an injected failed-task dict.

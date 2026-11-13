@@ -1,5 +1,11 @@
 ---
 - name: Ensure namespace exists
+  register: _ops_retry_vault_0
+  until: >-
+    (_ops_retry_vault_0 | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_retry_vault_0
+    is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: present
     api_version: v1
@@ -7,25 +13,31 @@
     name: "{{ ocp4_days_workload_vault_namespace }}"
 
 - name: Add HashiCorp Helm repo
+  until: r_helm_repo is succeeded
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   command: >-
     helm repo add {{ ocp4_days_workload_vault_helm_repo_name }}
     {{ ocp4_days_workload_vault_helm_repo_url }}
   register: r_helm_repo
   changed_when: "'has been added' in r_helm_repo.stdout"
   failed_when: r_helm_repo.rc != 0 and 'already exists' not in r_helm_repo.stderr
-  ignore_errors: true
-
 - name: Update Helm repo
+  register: _ops_vault_helm_repo_update
+  until: _ops_vault_helm_repo_update is succeeded
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   command: helm repo update {{ ocp4_days_workload_vault_helm_repo_name }}
-  ignore_errors: true
-
 - name: Get cluster ingress domain
+  until: >-
+    (r_ingress | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_ingress | deliver_openshift_ops_day.automation.ops_ready))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
     kind: Ingress
     name: cluster
   register: r_ingress
-
 - name: Set Vault route host
   set_fact:
     _vault_route_host: "vault.{{ r_ingress.resources[0].spec.domain }}"
@@ -39,20 +51,8 @@
       - "Injector image: {{ ocp4_days_workload_vault_injector_image }}:{{ ocp4_days_workload_vault_injector_tag }}"
 
 - name: Install Vault via Helm
-  command: >-
-    helm upgrade --install {{ ocp4_days_workload_vault_helm_release }}
-    {{ ocp4_days_workload_vault_chart }}
-    --namespace {{ ocp4_days_workload_vault_namespace }}
-    --values {{ role_path }}/files/vault-values.yml
-    --set-string server.route.host={{ _vault_route_host }}
-    --set-string server.image.repository={{ ocp4_days_workload_vault_server_image }}
-    --set-string server.image.tag={{ ocp4_days_workload_vault_server_tag }}
-    --set-string injector.image.repository={{ ocp4_days_workload_vault_injector_image }}
-    --set-string injector.image.tag={{ ocp4_days_workload_vault_injector_tag }}
-    --set-string injector.agentImage.repository={{ ocp4_days_workload_vault_server_image }}
-    --set-string injector.agentImage.tag={{ ocp4_days_workload_vault_server_tag }}
-    --set-string server.dev.devRootToken={{ ocp4_days_workload_vault_dev_root_token }}
-    --wait --timeout 10m
+  no_log: true
+  command: helm upgrade --install {{ ocp4_days_workload_vault_helm_release }} {{ ocp4_days_workload_vault_chart }} --namespace {{ ocp4_days_workload_vault_namespace }} --values {{ role_path }}/files/vault-values.yml --set-string server.route.host={{ _vault_route_host }} --set-string server.image.repository={{ ocp4_days_workload_vault_server_image }} --set-string server.image.tag={{ ocp4_days_workload_vault_server_tag }} --set-string injector.image.repository={{ ocp4_days_workload_vault_injector_image }} --set-string injector.image.tag={{ ocp4_days_workload_vault_injector_tag }} --set-string injector.agentImage.repository={{ ocp4_days_workload_vault_server_image }} --set-string injector.agentImage.tag={{ ocp4_days_workload_vault_server_tag }} --set-string server.dev.devRootToken={{ ocp4_days_workload_vault_dev_root_token }} --wait --timeout {{ ops_day_helm_timeout | default('30m') }}
   register: r_helm_install
 
 - name: DEBUG - Helm install output
@@ -75,12 +75,12 @@
       - "app.kubernetes.io/name=vault"
       - "component=server"
   register: r_vault_pod
-  until:
-    - r_vault_pod.resources | length > 0
-    - r_vault_pod.resources[0].status.phase == 'Running'
-    - r_vault_pod.resources[0].status.containerStatuses is defined
-    - r_vault_pod.resources[0].status.containerStatuses | selectattr('ready', 'equalto', true) | list | length > 0
-  retries: 30
+  until: >-
+    (r_vault_pod | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_vault_pod is succeeded)
+    and (r_vault_pod.resources | default([]) | length > 0) and (r_vault_pod.resources[0].status.phase
+    == 'Running') and (r_vault_pod.resources[0].status.containerStatuses is defined) and (r_vault_pod.resources[0].status.containerStatuses
+    | selectattr('ready', 'equalto', true) | list | length > 0))
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
 
 - name: DEBUG - Vault pods

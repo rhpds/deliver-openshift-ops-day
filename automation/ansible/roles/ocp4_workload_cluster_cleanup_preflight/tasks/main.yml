@@ -37,8 +37,25 @@
           registryPullQPS: 15
           registryBurst: 30
   register: r_kubelet_config
+  until: >-
+    (r_kubelet_config | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_kubelet_config
+    is succeeded))
+  retries: "{{ ops_day_api_retries | default(120) }}"
+  delay: "{{ ops_day_retry_delay | default(10) }}"
   when: ACTION == "provision"
-  ignore_errors: true
+
+- name: Wait for KubeletConfig controller to observe and accept the applied generation
+  kubernetes.core.k8s_info:
+    api_version: machineconfiguration.openshift.io/v1
+    kind: KubeletConfig
+    name: compact-cluster-image-gc
+  register: _ops_kubelet_ready
+  until: >-
+    (_ops_kubelet_ready | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_kubelet_ready
+    | deliver_openshift_ops_day.automation.ops_ready('kubeletconfig')))
+  retries: "{{ ops_day_readiness_retries | default(120) }}"
+  delay: "{{ ops_day_retry_delay | default(10) }}"
+  when: ACTION == "provision"
 
 - name: Wait for MachineConfigPool master to begin rolling out new KubeletConfig
   kubernetes.core.k8s_info:
@@ -49,15 +66,14 @@
   retries: 18
   delay: 10
   until: >-
-    r_mcp_updating.resources | length > 0 and (
-    r_mcp_updating.resources[0].status.conditions
+    (r_mcp_updating | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_mcp_updating
+    is succeeded and r_mcp_updating.resources | default([]) | length > 0 and ( r_mcp_updating.resources[0].status.conditions
       | selectattr('type', 'equalto', 'Updating')
       | selectattr('status', 'equalto', 'True')
       | list | length > 0
-    or
-    (r_mcp_updating.resources[0].status.updatedMachineCount | default(0) | int)
+    or (r_mcp_updating.resources[0].status.updatedMachineCount | default(0) | int)
       < (r_mcp_updating.resources[0].status.machineCount | default(1) | int)
-    )
+    )))
   when:
     - ACTION == "provision"
     - r_kubelet_config is changed
@@ -69,23 +85,23 @@
     kind: MachineConfigPool
     name: master
   register: r_mcp_done
-  retries: 90
+  retries: "{{ ops_day_preflight_pool_retries | default(90) }}"
   delay: 20
   until: >-
-    r_mcp_done.resources | length > 0 and
-    r_mcp_done.resources[0].status.conditions
-      | selectattr('type', 'equalto', 'Updated')
-      | selectattr('status', 'equalto', 'True')
-      | list | length > 0 and
-    r_mcp_done.resources[0].status.conditions
-      | selectattr('type', 'equalto', 'Updating')
-      | selectattr('status', 'equalto', 'False')
-      | list | length > 0 and
-    r_mcp_done.resources[0].status.degradedMachineCount | default(0) | int == 0
-  when:
-    - ACTION == "provision"
-    - r_kubelet_config is changed
-  ignore_errors: true
+    (r_mcp_done | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_mcp_done | deliver_openshift_ops_day.automation.ops_ready('pool')))
+  when: ACTION == "provision"
+
+- name: Wait for nodes to finish configuration and return Ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+  register: _ops_preflight_nodes
+  until: >-
+    (_ops_preflight_nodes | deliver_openshift_ops_day.automation.ops_permanent_error) or ((_ops_preflight_nodes
+    | deliver_openshift_ops_day.automation.ops_ready('nodes')))
+  retries: "{{ ops_day_preflight_pool_retries | default(90) }}"
+  delay: 20
+  when: ACTION == "provision"
 
 - name: Wait for OLM packageserver to recover after MCP rollout
   kubernetes.core.k8s_info:
@@ -93,22 +109,12 @@
     kind: ClusterOperator
     name: operator-lifecycle-manager-packageserver
   register: r_packageserver_co
-  retries: 30
+  retries: "{{ ops_day_packageserver_retries | default(60) }}"
   delay: 20
   until: >-
-    r_packageserver_co.resources | length > 0 and
-    r_packageserver_co.resources[0].status.conditions
-      | selectattr('type', 'equalto', 'Available')
-      | selectattr('status', 'equalto', 'True')
-      | list | length > 0 and
-    r_packageserver_co.resources[0].status.conditions
-      | selectattr('type', 'equalto', 'Degraded')
-      | selectattr('status', 'equalto', 'False')
-      | list | length > 0
-  when:
-    - ACTION == "provision"
-    - r_kubelet_config is changed
-  ignore_errors: true
+    (r_packageserver_co | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_packageserver_co
+    | deliver_openshift_ops_day.automation.ops_ready('packageserver')))
+  when: ACTION == "provision"
 
 - name: Pre-flight cluster cleanup - free disk before operator installs
   when: ACTION == "provision"

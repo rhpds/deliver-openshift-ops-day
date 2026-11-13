@@ -42,37 +42,30 @@
 # ==============================================================================
 
 - name: Get Central CR
+  until: >-
+    (r_central_cr | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_central_cr |
+    deliver_openshift_ops_day.automation.ops_ready))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s_info:
     api_version: platform.stackrox.io/v1alpha1
     kind: Central
     namespace: stackrox
   register: r_central_cr
-
 - name: Set Central CR name fact
   ansible.builtin.set_fact:
     _rhacs_central_cr_name: "{{ r_central_cr.resources[0].metadata.name }}"
 
 - name: Skip if native reencrypt route is already configured
   when: r_central_cr.resources[0].spec.central.exposure.route.reencrypt.enabled | default(false)
-  ansible.builtin.meta: end_host
-
-# Confirmed live on cluster-h2btq on 2026-10-09 that Central's pod has no
-# ephemeral-storage request (only cpu/memory, set by the RHACS operator's own
-# CR defaults). This compact 3-node cluster runs a custom KubeletConfig
-# (compact-cluster-image-gc, imageGC high/low 75/65) because it has no
-# dedicated worker and disk fills up fast during provisioning. When a node
-# briefly crosses the eviction-hard disk-pressure threshold, kubelet evicts
-# pods with no ephemeral-storage request first — which was Central, 18 min
-# before this role's "Verify Central is reachable" check gave up (50s
-# budget), causing the job to fail on an unrelated route-switch step while
-# Central was just being rescheduled.
-# This sets an explicit ephemeral-storage request so Central isn't first in
-# line for eviction. It does not fix the underlying disk pressure itself.
-# Verified live on cluster-h2btq on 2026-10-09: patching this onto the
-# running Central CR rolled new Central/Scanner pods cleanly (no
-# FailedScheduling, no eviction), both reached Ready, and the Central CR's
-# own Available condition reported "All workloads are ready" afterward.
+  ansible.builtin.meta: end_role
 - name: Set ephemeral-storage request on Central and Scanner so they aren't evicted first under disk pressure
+  register: _ops_retry_rhacs_console_embed_3
+  until: >-
+    (_ops_retry_rhacs_console_embed_3 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_rhacs_console_embed_3 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: patched
     api_version: platform.stackrox.io/v1alpha1
@@ -92,51 +85,71 @@
                 ephemeral-storage: 500Mi
 
 - name: Get cluster ingress domain
+  until: >-
+    (r_cluster_ingress | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_cluster_ingress
+    | deliver_openshift_ops_day.automation.ops_ready))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s_info:
     api_version: config.openshift.io/v1
     kind: Ingress
     name: cluster
   register: r_cluster_ingress
-
 - name: Set Central reencrypt host fact
   ansible.builtin.set_fact:
     _rhacs_central_reencrypt_host: "central-stackrox.{{ r_cluster_ingress.resources[0].spec.domain }}"
 
 - name: Get ingress controller default certificate name
+  until: >-
+    (r_ingress_controller | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_ingress_controller
+    | deliver_openshift_ops_day.automation.ops_ready))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
+  no_log: true
   kubernetes.core.k8s_info:
     api_version: operator.openshift.io/v1
     kind: IngressController
     name: default
     namespace: openshift-ingress-operator
   register: r_ingress_controller
-
 - name: Get ingress certificate secret
+  until: >-
+    (r_ingress_cert_secret | deliver_openshift_ops_day.automation.ops_permanent_error) or (r_ingress_cert_secret
+    | deliver_openshift_ops_day.automation.ops_data_ready(['tls.crt', 'tls.key']))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
+  no_log: true
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: "{{ r_ingress_controller.resources[0].spec.defaultCertificate.name | default('router-certs-default') }}"
     namespace: openshift-ingress
   register: r_ingress_cert_secret
-
 - name: Get StackRox central TLS secret (internal CA)
+  until: >-
+    (r_central_tls_secret | deliver_openshift_ops_day.automation.ops_permanent_error) or (r_central_tls_secret
+    | deliver_openshift_ops_day.automation.ops_data_ready(['ca.pem']))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
+  no_log: true
   kubernetes.core.k8s_info:
     api_version: v1
     kind: Secret
     name: central-tls
     namespace: stackrox
   register: r_central_tls_secret
-
-# The cluster trusted CA bundle includes all public root CAs (e.g. ISRG Root X1
-# for Let's Encrypt). Without it, HAProxy cannot verify the full certificate
-# chain when Central serves a Let's Encrypt cert on a reencrypt route.
 - name: Get cluster trusted CA bundle (public root CAs)
+  until: >-
+    (r_trusted_ca_bundle | deliver_openshift_ops_day.automation.ops_permanent_error) or (r_trusted_ca_bundle
+    | deliver_openshift_ops_day.automation.ops_data_ready(['ca-bundle.crt']))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s_info:
     api_version: v1
     kind: ConfigMap
     name: trusted-ca-bundle
     namespace: openshift-config-managed
   register: r_trusted_ca_bundle
-
 - name: Build combined destination CA certificate
   ansible.builtin.set_fact:
     _rhacs_combined_destination_ca: >-
@@ -144,6 +157,12 @@
       {{ r_trusted_ca_bundle.resources[0].data['ca-bundle.crt'] | default('') }}
 
 - name: Disable Central operator's default routes
+  register: _ops_retry_rhacs_console_embed_11
+  until: >-
+    (_ops_retry_rhacs_console_embed_11 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_rhacs_console_embed_11 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: patched
     api_version: platform.stackrox.io/v1alpha1
@@ -168,11 +187,19 @@
     kind: Route
     namespace: stackrox
   register: r_stackrox_routes
-  retries: 40
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
-  until: r_stackrox_routes.resources | length == 0
-
+  until: >-
+    (r_stackrox_routes | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_stackrox_routes
+    is succeeded) and (r_stackrox_routes.resources | default([]) | selectattr('metadata.name', 'in',
+    ['central', 'central-mtls']) | list | length == 0))
 - name: Enable native reencrypt route with combined CA trust
+  register: _ops_retry_rhacs_console_embed_13
+  until: >-
+    (_ops_retry_rhacs_console_embed_13 | deliver_openshift_ops_day.automation.ops_permanent_error)
+    or ((_ops_retry_rhacs_console_embed_13 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
   kubernetes.core.k8s:
     state: patched
     api_version: platform.stackrox.io/v1alpha1
@@ -205,18 +232,11 @@
     name: central-reencrypt
     namespace: stackrox
   register: r_central_route
-  retries: 30
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
   delay: 10
   until: >-
-    r_central_route.resources | length > 0 and
-    r_central_route.resources[0].spec.host == _rhacs_central_reencrypt_host
-
-# Old budget (10 x 5s = 50s) assumed Central's pod was already up and only
-# the route needed a moment to pick it up. It has no tolerance for Central
-# being evicted/rescheduled (observed ~14 min recovery on cluster-h2btq on
-# 2026-10-09). Widened as a safety net on top of the ephemeral-storage
-# request above, which should make that eviction far less likely in the
-# first place.
+    (r_central_route | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_central_route
+    | deliver_openshift_ops_day.automation.ops_ready('route', _rhacs_central_reencrypt_host)))
 - name: Verify Central is reachable after route switch
   ansible.builtin.uri:
     url: "https://{{ _rhacs_central_reencrypt_host }}/v1/ping"
@@ -224,10 +244,11 @@
     validate_certs: false
     status_code: [200, 401]
   register: r_central_verify
-  retries: 60
+  retries: '{{ ops_day_readiness_retries | default(80) }}'
   delay: 15
-  until: r_central_verify.status in [200, 401]
-
+  until: >-
+    (r_central_verify | deliver_openshift_ops_day.automation.ops_permanent_error) or ((r_central_verify
+    is succeeded) and (r_central_verify.status | default(-1) in [200, 401]))
 - name: Report result
   debug:
     msg: >-

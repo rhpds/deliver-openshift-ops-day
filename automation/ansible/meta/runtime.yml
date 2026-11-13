@@ -1,0 +1,3 @@
+---
+# end_role prevents an idempotent role skip from ending provisioning for the host.
+requires_ansible: ">=2.18.0"
