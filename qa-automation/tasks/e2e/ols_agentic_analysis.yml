@@ -61,6 +61,60 @@
       delay: 5
       no_log: true
 
+    - name: "Ols | Wait for the controller-owned approval record"
+      kubernetes.core.k8s_info:
+        api_version: agentic.openshift.io/v1alpha1
+        kind: AgenticRunApproval
+        name: "{{ qa_ols_analysis_name }}"
+        namespace: openshift-lightspeed
+      register: qa_ols_approval_record
+      until:
+        - qa_ols_approval_record is succeeded
+        - qa_ols_approval_record.resources | default([]) | length == 1
+      retries: 30
+      delay: 2
+      no_log: true
+
+    - name: "Ols | Verify QA ownership and analysis-only approval scope"
+      ansible.builtin.assert:
+        that:
+          - qa_ols_analysis_created.result.metadata.labels.get('qa.ops-day/run', '') == qa_ols_analysis_name
+          - qa_ols_analysis_created.result.spec.analysisOutput.mode == 'Minimal'
+          - qa_ols_analysis_created.result.spec.execution is not defined
+          - qa_ols_analysis_created.result.spec.verification is not defined
+          - qa_ols_analysis_created.result.spec.tools is not defined
+          - >-
+            qa_ols_approval_record.resources[0].metadata.ownerReferences
+            | selectattr('uid', 'equalto', qa_ols_analysis_created.result.metadata.uid)
+            | selectattr('kind', 'equalto', 'AgenticRun') | list | length == 1
+          - >-
+            qa_ols_approval_record.resources[0].spec.stages | default([])
+            | rejectattr('type', 'equalto', 'Analysis') | list | length == 0
+          - >-
+            qa_ols_approval_record.resources[0].spec.stages | default([])
+            | selectattr('decision', 'defined') | selectattr('decision', 'equalto', 'Denied')
+            | list | length == 0
+        quiet: true
+
+    - name: "Ols | Approve only Analysis for the owned advisory QA run"
+      kubernetes.core.k8s:
+        state: patched
+        api_version: agentic.openshift.io/v1alpha1
+        kind: AgenticRunApproval
+        name: "{{ qa_ols_analysis_name }}"
+        namespace: openshift-lightspeed
+        definition:
+          spec:
+            stages:
+              - type: Analysis
+                decision: Approved
+                analysis: {}
+      register: qa_ols_analysis_approved
+      until: qa_ols_analysis_approved is succeeded
+      retries: 12
+      delay: 5
+      no_log: true
+
     - name: "Ols | Wait for real analysis inference to finish"
       kubernetes.core.k8s_info:
         api_version: agentic.openshift.io/v1alpha1

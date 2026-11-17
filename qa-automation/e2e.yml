@@ -51,7 +51,7 @@
       - "Security e2e checks vulnerable-workload deployment, not RHACS vulnerability/violation confirmation."
       - "Observability e2e tests real alert firing; Loki/Tempo installation and UI flows are separate."
       - "Performance e2e verifies HPA metrics, not VPA installation or load-driven scale-up."
-      - "Agentic e2e is analysis-only; human approval and remediation execution are not automated."
+      - "Agentic e2e approves only its owned analysis-only request; execution approval and remediation execution are not automated."
     # The env lookup returns '' (not undefined) when a var isn't set, so
     # default() needs boolean=true to treat '' as missing too -- otherwise
     # it never overrides the empty string and every module gate defaults

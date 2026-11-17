@@ -83,6 +83,35 @@ class FullE2ESafetyTests(unittest.TestCase):
         self.harness.run_tasks([check], {}, False,
                               extra_vars={'qa_ols_analysis_observed': result})
 
+    def test_analysis_approval_cannot_approve_execution_or_another_run(self):
+        tasks = list(walk(self.analysis))
+        approve = next(t for t in tasks if t.get('name') ==
+                       'Ols | Approve only Analysis for the owned advisory QA run')
+        args = approve['kubernetes.core.k8s']
+        self.assertEqual(args['kind'], 'AgenticRunApproval')
+        self.assertEqual(args['name'], '{{ qa_ols_analysis_name }}')
+        self.assertEqual(args['definition']['spec'], {'stages': [
+            {'type': 'Analysis', 'decision': 'Approved', 'analysis': {}}]})
+        guard = next(t for t in tasks if t.get('name') ==
+                     'Ols | Verify QA ownership and analysis-only approval scope')
+        variables = {'qa_ols_analysis_name': 'qa-run', 'qa_ols_analysis_created': {
+            'result': {'metadata': {'uid': 'qa-uid', 'labels': {'qa.ops-day/run': 'qa-run'}},
+                       'spec': {'analysisOutput': {'mode': 'Minimal'}}}},
+            'qa_ols_approval_record': {'resources': [{'metadata': {
+                'ownerReferences': [{'uid': 'qa-uid', 'kind': 'AgenticRun'}]}, 'spec': {'stages': []}}]}}
+        self.harness.run_tasks([guard], {}, extra_vars=variables)
+        for mutation in ['owner', 'execution', 'denied']:
+            bad = copy.deepcopy(variables)
+            if mutation == 'owner':
+                bad['qa_ols_approval_record']['resources'][0]['metadata']['ownerReferences'][0]['uid'] = 'someone-else'
+            elif mutation == 'execution':
+                bad['qa_ols_analysis_created']['result']['spec']['execution'] = {'agent': 'default'}
+            else:
+                bad['qa_ols_approval_record']['resources'][0]['spec']['stages'] = [
+                    {'type': 'Analysis', 'decision': 'Denied', 'analysis': {}}]
+            self.harness.run_tasks([guard], {}, False, extra_vars=bad)
+        self.assertNotIn('kind: ApprovalPolicy', (QA / 'tasks/e2e/ols_agentic_analysis.yml').read_text())
+
     def test_agentic_cleanup_is_name_scoped_and_ownership_guarded(self):
         tasks = list(walk(self.analysis))
         delete = next(t for t in tasks if t.get('name') == 'Ols | Delete only this QA-owned AgenticRun')

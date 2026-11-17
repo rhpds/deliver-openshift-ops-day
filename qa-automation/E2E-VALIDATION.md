@@ -16,8 +16,10 @@ strict mode still fails if no update exists. Module 13 documents this condition.
 Do not assume that CVO or alerts created an AgenticRun. The suite performs a real
 MaaS request and creates its own uniquely named analysis-only AgenticRun. It must
 finish with a successful analysis result; mere CR existence is insufficient.
-The CR has no execution/verification/tools, uses Minimal analysis output, and
-never approves remediation. Cleanup checks ownership and deletes only its run,
+The CR has no execution/verification/tools and uses immutable Minimal output.
+The suite verifies its ownership/UID and approves only its Analysis stage in
+the matching controller-owned AgenticRunApproval. It never changes global
+ApprovalPolicy or approves execution/remediation. Cleanup checks ownership and deletes only its run,
 without force-clearing finalizers. Shared alerts-adapter settings and existing
 learner/CVO/alert-origin runs are not modified or deleted.
 
