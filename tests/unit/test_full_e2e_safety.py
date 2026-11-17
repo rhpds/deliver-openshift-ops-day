@@ -150,6 +150,23 @@ class FullE2ESafetyTests(unittest.TestCase):
                     self.assertNotIn('failed_when', t)
         self.assertGreater(found, 10)
 
+    def test_self_heal_requires_a_new_ready_pod_not_stale_replica_counts(self):
+        task = copy.deepcopy(next(t for t in walk(load('tasks/e2e/appmgmt.yml'))
+                                  if t.get('name') ==
+                                  'Appmgmt | Require a ready replacement rather than stale replica status'))
+        task['retries'] = 2
+        task['delay'] = 0
+        def pod(uid, ready='True'):
+            return {'metadata': {'uid': uid}, 'status': {'conditions': [{'type': 'Ready', 'status': ready}]}}
+        old = {'resources': [pod('old'), pod('b'), pod('c')]}
+        pending = {'resources': [pod('new', 'False'), pod('b'), pod('c')]}
+        ready = {'resources': [pod('new'), pod('b'), pod('c')]}
+        variables = {'e2e_appmgmt_pods_before': {'resources': [pod('old')]}}
+        state, _ = self.harness.run_tasks([task], {'Pod': [old, pending, ready]}, extra_vars=variables)
+        self.assertEqual(state['counts']['Pod'], 3)
+        self.harness.run_tasks([task], {'Pod': [old]}, False, extra_vars=variables)
+        self.harness.run_tasks([task], {'Pod': [pending]}, False, extra_vars=variables)
+
     def test_network_policy_wait_rejects_cli_errors_and_allows_convergence(self):
         task = copy.deepcopy(next(t for t in walk(load('tasks/e2e/netsec.yml'))
                                   if t.get('name') == 'Netsec | Confirm connectivity is now blocked'))

@@ -147,6 +147,28 @@
         name: "{{ e2e_appmgmt_pods_before.resources[0].metadata.name }}"
         namespace: qa-e2e-app-management
 
+    - name: "Appmgmt | Require a ready replacement rather than stale replica status"
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: qa-e2e-app-management
+        label_selectors:
+          - app=weathernow
+      register: e2e_appmgmt_replacement_pods
+      until:
+        - e2e_appmgmt_replacement_pods is succeeded
+        - e2e_appmgmt_replacement_pods.resources | default([]) | length == 3
+        - >-
+          e2e_appmgmt_pods_before.resources[0].metadata.uid not in
+          (e2e_appmgmt_replacement_pods.resources | default([]) | map(attribute='metadata.uid') | list)
+        - >-
+          e2e_appmgmt_replacement_pods.resources | default([])
+          | map(attribute='status.conditions', default=[]) | flatten
+          | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True')
+          | list | length == 3
+      retries: "{{ qa_readiness_retries | default(60) }}"
+      delay: 5
+
     - name: "Appmgmt | Confirm self-heal restores 3 ready replicas"
       kubernetes.core.k8s_info:
         api_version: apps/v1
