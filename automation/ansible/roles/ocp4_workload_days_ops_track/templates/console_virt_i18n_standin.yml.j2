@@ -1,0 +1,134 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: console-virt-perspective-plugin-content
+  namespace: openshift-cnv
+  labels:
+    app.kubernetes.io/managed-by: ops-track-workshop
+data:
+  nginx.conf: |
+    worker_processes auto;
+    error_log /dev/stderr;
+    pid /tmp/nginx.pid;
+    events { worker_connections 1024; }
+    http {
+      include /etc/nginx/mime.types;
+      default_type application/octet-stream;
+      access_log /dev/stdout;
+      server {
+        listen 9443 ssl;
+        ssl_certificate /var/serving-cert/tls.crt;
+        ssl_certificate_key /var/serving-cert/tls.key;
+        root /usr/share/nginx/html;
+        location / {
+          add_header Cache-Control "no-cache, no-store, must-revalidate";
+          try_files $uri $uri/ =404;
+        }
+      }
+    }
+  plugin-manifest.json: |
+    {"name":"console-virt-perspective-plugin","version":"4.20.0","dependencies":{"@console/pluginAPI":">=4.17.0-0"},"customProperties":{"console":{"displayName":"Console Virt Perspective Plugin"}},"extensions":[]}
+  plugin__console-virt-perspective-plugin.json: |
+    {"Fleet Virtualization":"Fleet Virtualization"}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: console-virt-perspective-plugin-service
+  namespace: openshift-cnv
+  labels:
+    app.kubernetes.io/managed-by: ops-track-workshop
+    app: console-virt-perspective-plugin
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: console-virt-perspective-plugin-cert
+spec:
+  selector:
+    app: console-virt-perspective-plugin
+  ports:
+    - name: https
+      port: 9443
+      targetPort: 9443
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: console-virt-perspective-plugin
+  namespace: openshift-cnv
+  labels:
+    app.kubernetes.io/managed-by: ops-track-workshop
+    app: console-virt-perspective-plugin
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: console-virt-perspective-plugin
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/managed-by: ops-track-workshop
+        app: console-virt-perspective-plugin
+    spec:
+      containers:
+        - name: nginx
+          image: {{ workshop_console_virt_i18n_standin_image | quote }}
+          command: ["nginx", "-g", "daemon off;", "-c", "/etc/nginx/nginx.conf"]
+          ports:
+            - containerPort: 9443
+              protocol: TCP
+          volumeMounts:
+            - name: nginx-conf
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: content
+              mountPath: /usr/share/nginx/html/plugin-manifest.json
+              subPath: plugin-manifest.json
+            - name: content
+              mountPath: /usr/share/nginx/html/locales/en/plugin__console-virt-perspective-plugin.json
+              subPath: plugin__console-virt-perspective-plugin.json
+            - name: serving-cert
+              mountPath: /var/serving-cert
+              readOnly: true
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+      volumes:
+        - name: nginx-conf
+          configMap:
+            name: console-virt-perspective-plugin-content
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+        - name: content
+          configMap:
+            name: console-virt-perspective-plugin-content
+            items:
+              - key: plugin-manifest.json
+                path: plugin-manifest.json
+              - key: plugin__console-virt-perspective-plugin.json
+                path: plugin__console-virt-perspective-plugin.json
+        - name: serving-cert
+          secret:
+            secretName: console-virt-perspective-plugin-cert
+---
+apiVersion: console.openshift.io/v1
+kind: ConsolePlugin
+metadata:
+  name: console-virt-perspective-plugin
+  labels:
+    app.kubernetes.io/managed-by: ops-track-workshop
+spec:
+  backend:
+    type: Service
+    service:
+      name: console-virt-perspective-plugin-service
+      namespace: openshift-cnv
+      port: 9443
+      basePath: /
+  displayName: Console Virt Perspective Plugin
+  i18n:
+    loadType: Preload

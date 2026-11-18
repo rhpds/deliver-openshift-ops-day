@@ -1,0 +1,290 @@
+---
+# Opt-in transport mitigation. The dedicated custom certificate avoids
+# enabling HTTP/2 on the cluster's wildcard-certificate route.
+
+- name: Read the cluster ingress domain and existing Console route
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: r_console_http2_ingress
+
+- name: Read current default Console route
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    name: console
+    namespace: openshift-console
+  register: r_console_http2_default_route
+
+- name: Ensure Console route and cluster ingress domain exist
+  ansible.builtin.assert:
+    that:
+      - r_console_http2_ingress.resources | length == 1
+      - r_console_http2_default_route.resources | length == 1
+
+- name: Set dedicated Console hostname
+  ansible.builtin.set_fact:
+    _workshop_console_http2_hostname: >-
+      {{ workshop_console_http2_hostname | default('') | trim
+         if workshop_console_http2_hostname | default('') | trim | length > 0
+         else 'console-h2.' ~ r_console_http2_ingress.resources[0].spec.domain }}
+
+- name: Ensure the dedicated Console hostname differs from the default route
+  ansible.builtin.assert:
+    that:
+      - _workshop_console_http2_hostname != r_console_http2_default_route.resources[0].spec.host
+    fail_msg: The dedicated Console HTTP/2 hostname must differ from the default route hostname.
+
+- name: Find an existing Console component route
+  ansible.builtin.set_fact:
+    _workshop_existing_console_component_routes: >-
+      {{ r_console_http2_ingress.resources[0].spec.componentRoutes | default([], true)
+         | selectattr('name', 'equalto', 'console') | list }}
+
+- name: Ensure an existing Console component route matches this configuration
+  ansible.builtin.assert:
+    that:
+      - _workshop_existing_console_component_routes[0].hostname == _workshop_console_http2_hostname
+      - (_workshop_existing_console_component_routes[0].servingCertKeyPairSecret | default({})).name | default('') == workshop_console_http2_tls_secret_name
+    fail_msg: >-
+      Ingress already has a Console component route with different settings;
+      review it before enabling the HTTP/2 route.
+  when: _workshop_existing_console_component_routes | length > 0
+
+- name: Read the existing HTTP/2 ownership state
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: ops-track-console-http2-state
+    namespace: openshift-config
+  register: r_console_http2_state
+  failed_when: false
+
+- name: Read IngressController before enabling HTTP/2
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1
+    kind: IngressController
+    name: default
+    namespace: openshift-ingress-operator
+  register: r_console_http2_ingress_controller
+
+- name: Read any existing managed Certificate
+  kubernetes.core.k8s_info:
+    api_version: cert-manager.io/v1
+    kind: Certificate
+    name: "{{ workshop_console_http2_certificate_name }}"
+    namespace: openshift-config
+  register: r_console_http2_existing_certificate
+  when: workshop_console_http2_cert_issuer_name | default('') | length > 0
+
+- name: Read the configured TLS Secret before creating a Certificate
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ workshop_console_http2_tls_secret_name }}"
+    namespace: openshift-config
+  register: r_console_http2_existing_tls_secret
+
+- name: Ensure any existing Certificate matches the requested hostname and Secret
+  ansible.builtin.assert:
+    that:
+      - _workshop_console_http2_hostname in (r_console_http2_existing_certificate.resources[0].spec.dnsNames | default([]))
+      - r_console_http2_existing_certificate.resources[0].spec.secretName == workshop_console_http2_tls_secret_name
+      - r_console_http2_existing_certificate.resources[0].spec.issuerRef.name == workshop_console_http2_cert_issuer_name
+    fail_msg: >-
+      The named Certificate already exists with different settings; review it
+      before using it for the Console HTTP/2 route.
+  when:
+    - workshop_console_http2_cert_issuer_name | default('') | length > 0
+    - r_console_http2_existing_certificate.resources | length > 0
+
+- name: Refuse to adopt an unrelated Secret when creating a Certificate
+  ansible.builtin.assert:
+    that:
+      - r_console_http2_existing_tls_secret.resources | length == 0
+    fail_msg: >-
+      A TLS Secret with this name already exists but there is no matching
+      Certificate. Choose another Secret name or manage the certificate
+      outside this role.
+  when:
+    - workshop_console_http2_cert_issuer_name | default('') | length > 0
+    - r_console_http2_existing_certificate.resources | length == 0
+
+- name: Save original router setting and ownership for safe cleanup
+  kubernetes.core.k8s:
+    state: present
+    merge_type: merge
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: ops-track-console-http2-state
+        namespace: openshift-config
+        labels:
+          app.kubernetes.io/managed-by: ops-track-workshop
+      data:
+        hostname: "{{ _workshop_console_http2_hostname }}"
+        tls_secret_name: "{{ workshop_console_http2_tls_secret_name }}"
+        certificate_name: "{{ workshop_console_http2_certificate_name }}"
+        issuer_name: "{{ workshop_console_http2_cert_issuer_name | default('') }}"
+        certificate_created: "{{ (workshop_console_http2_cert_issuer_name | default('') | length > 0 and r_console_http2_existing_certificate.resources | default([]) | length == 0) | ternary('true', 'false') }}"
+        component_route_created: "{{ (_workshop_existing_console_component_routes | length == 0) | ternary('true', 'false') }}"
+        original_http2_annotation_present: "{{ ('ingress.operator.openshift.io/default-enable-http2' in (r_console_http2_ingress_controller.resources[0].metadata.annotations | default({}))) | ternary('true', 'false') }}"
+        original_http2_annotation_value: "{{ (r_console_http2_ingress_controller.resources[0].metadata.annotations | default({})).get('ingress.operator.openshift.io/default-enable-http2', '') }}"
+  when: r_console_http2_state.resources | length == 0
+
+- name: Validate an existing HTTP/2 ownership state
+  ansible.builtin.assert:
+    that:
+      - r_console_http2_state.resources[0].data.hostname == _workshop_console_http2_hostname
+      - r_console_http2_state.resources[0].data.tls_secret_name == workshop_console_http2_tls_secret_name
+      - r_console_http2_state.resources[0].data.issuer_name == (workshop_console_http2_cert_issuer_name | default(''))
+    fail_msg: >-
+      The saved Console HTTP/2 state belongs to a different hostname, Secret,
+      or issuer; remove it deliberately before changing this configuration.
+  when: r_console_http2_state.resources | length > 0
+
+- name: Read cert-manager ClusterIssuer
+  kubernetes.core.k8s_info:
+    api_version: cert-manager.io/v1
+    kind: ClusterIssuer
+    name: "{{ workshop_console_http2_cert_issuer_name }}"
+  register: r_console_http2_issuer
+  when: workshop_console_http2_cert_issuer_name | default('') | length > 0
+
+- name: Ensure cert-manager issuer is Ready
+  ansible.builtin.assert:
+    that:
+      - r_console_http2_issuer.resources | length == 1
+      - r_console_http2_issuer.resources[0].status.conditions | default([]) | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0
+    fail_msg: The configured cert-manager ClusterIssuer is missing or not Ready.
+  when: workshop_console_http2_cert_issuer_name | default('') | length > 0
+
+- name: Request a dedicated non-wildcard Console certificate
+  kubernetes.core.k8s:
+    state: present
+    merge_type: merge
+    definition:
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      metadata:
+        name: "{{ workshop_console_http2_certificate_name }}"
+        namespace: openshift-config
+        labels:
+          app.kubernetes.io/managed-by: ops-track-workshop
+      spec:
+        secretName: "{{ workshop_console_http2_tls_secret_name }}"
+        dnsNames:
+          - "{{ _workshop_console_http2_hostname }}"
+        issuerRef:
+          name: "{{ workshop_console_http2_cert_issuer_name }}"
+          kind: ClusterIssuer
+          group: cert-manager.io
+  when: workshop_console_http2_cert_issuer_name | default('') | length > 0
+
+- name: Wait for dedicated Console certificate issuance
+  kubernetes.core.k8s_info:
+    api_version: cert-manager.io/v1
+    kind: Certificate
+    name: "{{ workshop_console_http2_certificate_name }}"
+    namespace: openshift-config
+  register: r_console_http2_certificate
+  retries: 60
+  delay: 10
+  until: >-
+    r_console_http2_certificate.resources | length == 1 and
+    r_console_http2_certificate.resources[0].status.conditions | default([])
+      | selectattr('type', 'equalto', 'Ready')
+      | selectattr('status', 'equalto', 'True') | list | length > 0
+  when: workshop_console_http2_cert_issuer_name | default('') | length > 0
+
+- name: Read the Console HTTP/2 TLS Secret
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Secret
+    name: "{{ workshop_console_http2_tls_secret_name }}"
+    namespace: openshift-config
+  register: r_console_http2_tls_secret
+  retries: 12
+  delay: 5
+  until: r_console_http2_tls_secret.resources | length > 0
+
+- name: Ensure the Console HTTP/2 TLS Secret contains a key pair
+  ansible.builtin.assert:
+    that:
+      - r_console_http2_tls_secret.resources[0].data['tls.crt'] is defined
+      - r_console_http2_tls_secret.resources[0].data['tls.key'] is defined
+    fail_msg: >-
+      The Secret must contain tls.crt and tls.key. If no issuer is configured,
+      supply a non-wildcard certificate valid for the dedicated hostname.
+
+- name: Build the dedicated Console component route
+  ansible.builtin.set_fact:
+    _workshop_console_http2_component_route:
+      name: console
+      namespace: openshift-console
+      hostname: "{{ _workshop_console_http2_hostname }}"
+      servingCertKeyPairSecret:
+        name: "{{ workshop_console_http2_tls_secret_name }}"
+
+- name: Add the dedicated Console component route
+  kubernetes.core.k8s_json_patch:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+    patch:
+      - op: add
+        path: /spec/componentRoutes/-
+        value: "{{ _workshop_console_http2_component_route }}"
+  when:
+    - _workshop_existing_console_component_routes | length == 0
+    - r_console_http2_ingress.resources[0].spec.componentRoutes | default([], true) | length > 0
+
+- name: Add the first Console component route when none are configured
+  kubernetes.core.k8s_json_patch:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+    patch:
+      - op: add
+        path: /spec/componentRoutes
+        value:
+          - "{{ _workshop_console_http2_component_route }}"
+  when:
+    - _workshop_existing_console_component_routes | length == 0
+    - r_console_http2_ingress.resources[0].spec.componentRoutes | default([], true) | length == 0
+
+- name: Enable HTTP/2 on the default IngressController
+  kubernetes.core.k8s:
+    state: patched
+    merge_type: merge
+    api_version: operator.openshift.io/v1
+    kind: IngressController
+    name: default
+    namespace: openshift-ingress-operator
+    definition:
+      metadata:
+        annotations:
+          ingress.operator.openshift.io/default-enable-http2: "true"
+
+- name: Wait for dedicated Console route to become available
+  kubernetes.core.k8s_info:
+    api_version: route.openshift.io/v1
+    kind: Route
+    namespace: openshift-console
+  register: r_console_http2_routes
+  until: >-
+    r_console_http2_routes.resources
+    | selectattr('spec.host', 'equalto', _workshop_console_http2_hostname)
+    | selectattr('status.ingress', 'defined')
+    | map(attribute='status.ingress') | flatten
+    | selectattr('conditions', 'defined') | map(attribute='conditions') | flatten
+    | selectattr('type', 'equalto', 'Admitted')
+    | selectattr('status', 'equalto', 'True') | list | length > 0
+  retries: 30
+  delay: 10
+
+- name: Use the dedicated Console hostname in workshop links
+  ansible.builtin.set_fact:
+    master_url: "https://{{ _workshop_console_http2_hostname }}"

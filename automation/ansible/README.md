@@ -14,6 +14,7 @@ Deployed via agnosticv catalog item `agd_v2/openshift-days-ops-track-cnv`. The w
 ### RHACS (Advanced Cluster Security)
 - `ocp4_workload_rhacs` - Original ops_track copy with hardcoded resource reductions (deprecated, kept for reference)
 - `ocp4_workload_rhacs_v2` - Variable-driven version with optional resource overrides. Behaves identically to the upstream `core_workloads` role when no overrides are set. Upstream PR pending: https://github.com/agnosticd/core_workloads/pull/76
+- `ocp4_workload_rhacs_central_image_override` - Empty-by-default hook that applies a prebuilt Central image using the Central CR overlay API. It does not build the image; the local metadata polling patch still needs a version-matched image build and login-flow validation before this hook is enabled.
 
 ### Quay (Container Registry)
 - `ocp4_workload_quay_operator` - Original ops_track copy with hardcoded resource reductions (deprecated, kept for reference)

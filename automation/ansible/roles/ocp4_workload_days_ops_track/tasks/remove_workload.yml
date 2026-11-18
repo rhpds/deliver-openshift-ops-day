@@ -2,6 +2,66 @@
 # vim: set ft=ansible
 
 # Implement your Workload deployment tasks here
+- name: Remove optional Console HTTP/2 route and restore router setting
+  ansible.builtin.include_tasks: remove_console_http2.yml
+
+- name: Read KubeVirt ConsolePlugin before removing workload-owned translation stand-in
+  kubernetes.core.k8s_info:
+    api_version: console.openshift.io/v1
+    kind: ConsolePlugin
+    name: console-virt-perspective-plugin
+  register: r_console_virt_plugin_for_removal
+  failed_when: false
+
+- name: Determine whether the existing KubeVirt translation stand-in belongs to this role
+  ansible.builtin.set_fact:
+    _workshop_console_virt_standin_owned: >-
+      {{ r_console_virt_plugin_for_removal.resources | default([]) | length > 0 and
+         (r_console_virt_plugin_for_removal.resources[0].metadata.labels | default({})).get('app.kubernetes.io/managed-by', '') == 'ops-track-workshop' }}
+
+- name: Read enabled Console plugins before disabling the KubeVirt translation stand-in
+  kubernetes.core.k8s_info:
+    api_version: operator.openshift.io/v1
+    kind: Console
+    name: cluster
+  register: r_console_operator_plugins_for_removal
+  when: _workshop_console_virt_standin_owned | bool
+
+- name: Disable the KubeVirt Console translation stand-in plugin
+  kubernetes.core.k8s_json_patch:
+    api_version: operator.openshift.io/v1
+    kind: Console
+    name: cluster
+    patch:
+      - op: replace
+        path: /spec/plugins
+        value: "{{ r_console_operator_plugins_for_removal.resources[0].spec.plugins | default([]) | reject('equalto', 'console-virt-perspective-plugin') | list }}"
+  register: r_console_virt_standin_disable
+  when:
+    - _workshop_console_virt_standin_owned | bool
+    - "'console-virt-perspective-plugin' in (r_console_operator_plugins_for_removal.resources[0].spec.plugins | default([]))"
+
+- name: Wait for Console rollout after disabling the KubeVirt translation stand-in
+  ansible.builtin.shell: |
+    oc rollout status deployment/console -n openshift-console --timeout=180s
+  changed_when: false
+  when: r_console_virt_standin_disable is changed
+
+- name: Remove workload-owned KubeVirt Console translation stand-in
+  kubernetes.core.k8s:
+    state: absent
+    definition: "{{ lookup('template', 'console_virt_i18n_standin.yml.j2') | from_yaml_all | list }}"
+  when: _workshop_console_virt_standin_owned | bool
+
+- name: Remove serving certificate generated for KubeVirt Console translation stand-in
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Secret
+    name: console-virt-perspective-plugin-cert
+    namespace: openshift-cnv
+  when: _workshop_console_virt_standin_owned | bool
+
 - name: Check if clean-admin.yml exists
   stat:
     path: "{{ role_path }}/tasks/clean-admin.yml"
