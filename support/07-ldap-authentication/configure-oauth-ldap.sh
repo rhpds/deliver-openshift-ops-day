@@ -129,4 +129,18 @@ echo "Confirming the oauth and console routes are actually reachable before decl
 [ -n "$OAUTH_HOST" ] && wait_for_route_reachable "https://${OAUTH_HOST}/healthz" "oauth route"
 [ -n "$CONSOLE_HOST" ] && wait_for_route_reachable "https://${CONSOLE_HOST}/" "console route"
 
+# Signal the Showroom panel watchdog that the console just restarted, so the
+# embedded OCP Console tab reloads into a clean session instead of sitting
+# frozen on dead websockets (see console-reload-watchdog.js in the repo).
+signal_showroom_console_reload() {
+  local ns
+  ns=$(oc get ns --no-headers 2>/dev/null | awk '/^showroom/{print $1; exit}')
+  if [ -n "$ns" ]; then
+    oc -n "$ns" exec deployment/showroom -c content -- \
+      sh -c 'date +%s > /showroom/www/console-reload.marker' >/dev/null 2>&1 || true
+  fi
+}
+signal_showroom_console_reload
+
+
 echo "OAuth configuration applied and has been stable for ${REQUIRED_STABLE_SECS}s - it is now safe to log out and reload the console"

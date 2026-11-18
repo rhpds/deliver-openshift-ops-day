@@ -83,4 +83,18 @@ CONSOLE_HOST=$(oc get route console -n openshift-console -o jsonpath='{.spec.hos
 echo "Confirming the console route is actually reachable before declaring it safe to log back in..."
 [ -n "$CONSOLE_HOST" ] && wait_for_route_reachable "https://${CONSOLE_HOST}/" "console route"
 
+# Signal the Showroom panel watchdog that the console just restarted, so the
+# embedded OCP Console tab reloads into a clean session instead of sitting
+# frozen on dead websockets (see console-reload-watchdog.js in the repo).
+signal_showroom_console_reload() {
+  local ns
+  ns=$(oc get ns --no-headers 2>/dev/null | awk '/^showroom/{print $1; exit}')
+  if [ -n "$ns" ]; then
+    oc -n "$ns" exec deployment/showroom -c content -- \
+      sh -c 'date +%s > /showroom/www/console-reload.marker' >/dev/null 2>&1 || true
+  fi
+}
+signal_showroom_console_reload
+
+
 echo "DistributedTracing UIPlugin applied and console has been stable - it is now safe to log back into the console"

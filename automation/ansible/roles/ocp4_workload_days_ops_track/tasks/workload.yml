@@ -1734,6 +1734,37 @@
               - name: SHOWROOM_UI_CONFIG
                 value: "{{ _showroom_ui_config }}"
 
+# ==============================================================================
+# Console tab reload watchdog (self-healing embedded OCP Console tab).
+#
+# Modules 07/08/09 change OAuth identity providers or create UIPlugin CRs,
+# which makes the console-operator roll the console Deployment. The embedded
+# console tab's SPA loses its websockets mid-roll and can sit frozen until
+# the student manually refreshes. The support scripts that trigger these
+# restarts write a marker file into the served www directory once the
+# console is stable again; this watchdog (injected into the Showroom panel
+# page) polls the marker, probes the console backend favicon (only a real
+# console serves it as an image), and reloads the console tab iframe into a
+# clean session - retrying through outages. Console plugins stay enabled
+# throughout; nothing is disabled.
+# ==============================================================================
+- name: Inject console tab reload watchdog into Showroom panel
+  shell: |
+    SCRIPT_B64='{{ lookup("file", role_path ~ "/files/console-reload-watchdog.js") | b64encode }}'
+    oc exec deployment/showroom -n {{ showroom_namespace }} -c content -- sh -c "
+      printf '%s' \"$SCRIPT_B64\" | base64 -d > /showroom/www/console-reload-watchdog.js
+      if ! grep -q console-reload-watchdog.js /showroom/www/index.html; then
+        sed -i 's|</head>|<script src=\"./console-reload-watchdog.js\"></script></head>|' /showroom/www/index.html
+      fi
+      date +%s > /showroom/www/console-reload.marker
+    "
+  register: _ops_retry_days_ops_track_125
+  until: >-
+    (_ops_retry_days_ops_track_125 | deliver_openshift_ops_day.automation.ops_permanent_error) or
+    ((_ops_retry_days_ops_track_125 is succeeded) and (_ops_retry_days_ops_track_125 is succeeded))
+  retries: '{{ ops_day_api_retries | default(120) }}'
+  delay: '{{ ops_day_retry_delay | default(10) }}'
+
 - name: DEBUG - Showroom Deployment structure after patching
   shell: |
     NS="{{ showroom_namespace }}"
