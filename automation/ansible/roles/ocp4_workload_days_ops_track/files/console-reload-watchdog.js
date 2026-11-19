@@ -7,10 +7,13 @@
   var PROBE_TIMEOUT_MS = 8000;
   var RETRY_DELAY_MS = 10000;
   var MAX_ATTEMPTS = 6;
+  var COUNTDOWN_SEC = 15;
 
   var lastMarker = null;
   var initialized = false;
   var recovering = false;
+  var toast = null;
+  var countdownTimer = null;
 
   function log(msg) {
     try { console.info('[showroom] ' + msg); } catch (e) {}
@@ -28,8 +31,6 @@
     try { return new URL(f.src).origin; } catch (e) { return null; }
   }
 
-  // Only a real console serves the favicon as an actual image.
-  // The router's 503 error page is HTML and fires onerror.
   function probeConsole(origin, cb) {
     var img = new Image();
     var done = false;
@@ -51,6 +52,42 @@
     setTimeout(function () { f.src = u; }, 200);
   }
 
+  function dismissToast() {
+    if (toast) { toast.remove(); toast = null; }
+    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+  }
+
+  function showToast(onConfirm, onCancel) {
+    dismissToast();
+    toast = document.createElement('div');
+    toast.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:2147483647;background:#151515;color:#fff;padding:16px 20px;border-radius:8px;font-family:RedHatText,sans-serif;font-size:14px;box-shadow:0 4px 16px rgba(0,0,0,.4);max-width:340px';
+    var text = document.createElement('div');
+    text.style.cssText = 'margin-bottom:12px;line-height:1.4';
+    text.textContent = 'The OpenShift console restarted. Refreshing the console tab in ' + COUNTDOWN_SEC + 's so it reconnects cleanly.';
+    var btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px';
+    function mkBtn(label, primary, cb) {
+      var b = document.createElement('button');
+      b.textContent = label;
+      b.style.cssText = (primary ? 'background:#ee0000;' : 'background:#383838;') +
+        'color:#fff;border:none;border-radius:4px;padding:6px 12px;font-size:13px;cursor:pointer';
+      b.onclick = cb;
+      return b;
+    }
+    btnRow.appendChild(mkBtn('Refresh now', true, function () { dismissToast(); onConfirm(); }));
+    btnRow.appendChild(mkBtn("Don't refresh", false, function () { dismissToast(); onCancel(); }));
+    toast.appendChild(text);
+    toast.appendChild(btnRow);
+    document.body.appendChild(toast);
+
+    var left = COUNTDOWN_SEC;
+    countdownTimer = setInterval(function () {
+      left--;
+      if (left <= 0) { dismissToast(); onConfirm(); return; }
+      text.textContent = 'The OpenShift console restarted. Refreshing the console tab in ' + left + 's so it reconnects cleanly.';
+    }, 1000);
+  }
+
   function attemptRecovery(attempt) {
     var f = findConsoleIframe();
     if (!f) { recovering = false; return; }
@@ -60,27 +97,18 @@
     probeConsole(origin, function (up) {
       if (!up) {
         if (attempt < MAX_ATTEMPTS) {
-          log('console backend not serving yet (attempt ' + attempt + '), retrying in ' + (RETRY_DELAY_MS / 1000) + 's');
+          log('console backend not serving yet (attempt ' + attempt + '), retrying');
           setTimeout(function () { attemptRecovery(attempt + 1); }, RETRY_DELAY_MS);
         } else {
           recovering = false;
-          log('console did not recover after ' + MAX_ATTEMPTS + ' attempts, leaving tab as-is');
+          log('console did not recover, leaving tab as-is');
         }
         return;
       }
-      log('console backend healthy, reloading console tab (attempt ' + attempt + ')');
-      reloadFrame(f);
-      // after the reload, confirm the tab settled by probing again
-      setTimeout(function () {
-        probeConsole(origin, function (stillUp) {
-          recovering = false;
-          if (stillUp) {
-            log('console tab recovered (attempt ' + attempt + ')');
-          } else {
-            log('console backend dropped during reload; will re-arm on next marker');
-          }
-        });
-      }, 5000);
+      showToast(
+        function () { reloadFrame(f); recovering = false; log('console tab refreshed'); },
+        function () { recovering = false; log('console refresh cancelled by user'); }
+      );
     });
   }
 
