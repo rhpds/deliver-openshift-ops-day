@@ -133,12 +133,17 @@ echo "Confirming the oauth and console routes are actually reachable before decl
 # embedded OCP Console tab reloads into a clean session instead of sitting
 # frozen on dead websockets (see console-reload-watchdog.js in the repo).
 signal_showroom_console_reload() {
-  local ns
+  local ns attempt
   ns=$(oc get ns --no-headers 2>/dev/null | awk '/^showroom/{print $1; exit}')
-  if [ -n "$ns" ]; then
-    oc -n "$ns" exec deployment/showroom -c content -- \
-      sh -c 'date +%s > /showroom/www/console-reload.marker' >/dev/null 2>&1 || true
-  fi
+  [ -z "$ns" ] && return 0
+  for attempt in 1 2 3; do
+    if oc -n "$ns" exec deployment/showroom -c content -- \
+      sh -c 'date +%s > /showroom/www/console-reload.marker' >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 5
+  done
+  echo "WARNING: could not signal the Showroom console-reload watchdog (oc exec failed)"
 }
 signal_showroom_console_reload
 
