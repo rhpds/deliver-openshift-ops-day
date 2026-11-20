@@ -2171,19 +2171,28 @@
 
 # ==============================================================================
 # KubeVirt Console translation fallback
-# When KubeVirt is present but the real console-virt-perspective-plugin is
-# absent, serve the expected locale from a lightweight in-cluster HTTPS
+# When the virt module is enabled but the real console-virt-perspective-plugin
+# is absent, serve the expected locale from a lightweight in-cluster HTTPS
 # service. Reconcile an existing copy only when it points to this stand-in's
 # backend; leave a plugin backed by any other service untouched. Preload the
 # locale to avoid a lazy-load race when Console renders Fleet Virtualization.
+#
+# The stand-in lives in its own namespace rather than openshift-cnv: this
+# role runs in the base workloads, before the virt workloads create the CNV
+# namespace, so anything gated on openshift-cnv existing would never install
+# on a fresh deployment.
 # ==============================================================================
 
-- name: Check for KubeVirt namespace before installing the Console translation stand-in
-  kubernetes.core.k8s_info:
-    api_version: v1
-    kind: Namespace
-    name: openshift-cnv
-  register: r_console_virt_namespace
+- name: Create namespace for the Console translation stand-in
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ workshop_console_virt_i18n_standin_namespace }}"
+        labels:
+          app.kubernetes.io/managed-by: ops-track-workshop
   when:
     - module_enable_virt | default(true) | bool
     - workshop_console_virt_i18n_standin | bool
@@ -2197,7 +2206,6 @@
   when:
     - module_enable_virt | default(true) | bool
     - workshop_console_virt_i18n_standin | bool
-    - r_console_virt_namespace.resources | default([]) | length > 0
 
 - name: Identify an absent or already-installed KubeVirt translation stand-in
   ansible.builtin.set_fact:
@@ -2205,11 +2213,10 @@
       {{ r_console_virt_plugin.resources | default([]) | length == 0 or
          ((r_console_virt_plugin.resources[0].spec.backend.type | default('')) == 'Service' and
           (r_console_virt_plugin.resources[0].spec.backend.service.name | default('')) == 'console-virt-perspective-plugin-service' and
-          (r_console_virt_plugin.resources[0].spec.backend.service.namespace | default('')) == 'openshift-cnv') }}
+          (r_console_virt_plugin.resources[0].spec.backend.service.namespace | default('')) == workshop_console_virt_i18n_standin_namespace) }}
   when:
     - module_enable_virt | default(true) | bool
     - workshop_console_virt_i18n_standin | bool
-    - r_console_virt_namespace.resources | default([]) | length > 0
 
 - name: Install or reconcile the KubeVirt Console translation stand-in
   kubernetes.core.k8s:
@@ -2219,14 +2226,13 @@
   when:
     - module_enable_virt | default(true) | bool
     - workshop_console_virt_i18n_standin | bool
-    - r_console_virt_namespace.resources | default([]) | length > 0
     - _workshop_console_virt_standin_reconcile | default(false) | bool
 
 - name: Wait for KubeVirt Console translation stand-in to become ready
   kubernetes.core.k8s_info:
     api_version: apps/v1
     kind: Deployment
-    namespace: openshift-cnv
+    namespace: "{{ workshop_console_virt_i18n_standin_namespace }}"
     name: console-virt-perspective-plugin
   register: r_console_virt_standin_deployment
   until:
@@ -2245,7 +2251,6 @@
   when:
     - module_enable_virt | default(true) | bool
     - workshop_console_virt_i18n_standin | bool
-    - r_console_virt_namespace.resources | default([]) | length > 0
     - _workshop_console_virt_standin_reconcile | default(false) | bool
 
 - name: Enable the KubeVirt Console translation stand-in plugin when a plugins list already exists
@@ -2260,7 +2265,6 @@
   when:
     - module_enable_virt | default(true) | bool
     - workshop_console_virt_i18n_standin | bool
-    - r_console_virt_namespace.resources | default([]) | length > 0
     - _workshop_console_virt_standin_reconcile | default(false) | bool
     - r_console_operator_plugins.resources[0].spec.plugins | default([]) | length > 0
     - "'console-virt-perspective-plugin' not in (r_console_operator_plugins.resources[0].spec.plugins | default([]))"
@@ -2278,7 +2282,6 @@
   when:
     - module_enable_virt | default(true) | bool
     - workshop_console_virt_i18n_standin | bool
-    - r_console_virt_namespace.resources | default([]) | length > 0
     - _workshop_console_virt_standin_reconcile | default(false) | bool
     - r_console_operator_plugins.resources[0].spec.plugins | default([]) | length == 0
 

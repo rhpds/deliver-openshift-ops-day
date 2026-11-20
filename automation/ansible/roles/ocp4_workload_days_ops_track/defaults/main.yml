@@ -8,6 +8,7 @@ silent: false
 # when it already points to this stand-in's backend. Preload its locale before
 # the label is rendered.
 workshop_console_virt_i18n_standin: true
+workshop_console_virt_i18n_standin_namespace: console-virt-standin
 workshop_console_virt_i18n_standin_image: registry.access.redhat.com/ubi9/nginx-124:latest
 
 # Optional dedicated Console route for HTTP/2. A non-wildcard certificate may

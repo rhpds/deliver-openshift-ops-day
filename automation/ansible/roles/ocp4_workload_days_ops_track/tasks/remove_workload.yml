@@ -59,7 +59,16 @@
     api_version: v1
     kind: Secret
     name: console-virt-perspective-plugin-cert
-    namespace: openshift-cnv
+    namespace: "{{ workshop_console_virt_i18n_standin_namespace }}"
+  when: _workshop_console_virt_standin_owned | bool
+
+- name: Remove namespace created for the KubeVirt Console translation stand-in
+  kubernetes.core.k8s:
+    state: absent
+    api_version: v1
+    kind: Namespace
+    metadata:
+      name: "{{ workshop_console_virt_i18n_standin_namespace }}"
   when: _workshop_console_virt_standin_owned | bool
 
 - name: Check if clean-admin.yml exists

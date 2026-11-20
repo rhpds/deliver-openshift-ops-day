@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: console-virt-perspective-plugin-content
-  namespace: openshift-cnv
+  namespace: "{{ workshop_console_virt_i18n_standin_namespace }}"
   labels:
     app.kubernetes.io/managed-by: ops-track-workshop
 data:
@@ -35,7 +35,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: console-virt-perspective-plugin-service
-  namespace: openshift-cnv
+  namespace: "{{ workshop_console_virt_i18n_standin_namespace }}"
   labels:
     app.kubernetes.io/managed-by: ops-track-workshop
     app: console-virt-perspective-plugin
@@ -54,7 +54,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: console-virt-perspective-plugin
-  namespace: openshift-cnv
+  namespace: "{{ workshop_console_virt_i18n_standin_namespace }}"
   labels:
     app.kubernetes.io/managed-by: ops-track-workshop
     app: console-virt-perspective-plugin
@@ -126,7 +126,7 @@ spec:
     type: Service
     service:
       name: console-virt-perspective-plugin-service
-      namespace: openshift-cnv
+      namespace: "{{ workshop_console_virt_i18n_standin_namespace }}"
       port: 9443
       basePath: /
   displayName: Console Virt Perspective Plugin
