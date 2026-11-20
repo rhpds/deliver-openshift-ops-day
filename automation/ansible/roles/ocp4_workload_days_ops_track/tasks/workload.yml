@@ -1739,31 +1739,82 @@
 #
 # Modules 07/08/09 change OAuth identity providers or create UIPlugin CRs,
 # which makes the console-operator roll the console Deployment. The embedded
-# console tab's SPA loses its websockets mid-roll and can sit frozen until
-# the student manually refreshes. The support scripts that trigger these
-# restarts write a marker file into the served www directory once the
-# console is stable again; this watchdog (injected into the Showroom panel
-# page) polls the marker, probes the console backend favicon (only a real
-# console serves it as an image), and reloads the console tab iframe into a
-# clean session - retrying through outages. Console plugins stay enabled
+# console tab's SPA loses its websockets mid-roll and can sit unresponsive
+# until the student manually refreshes. The support scripts that trigger
+# these restarts write a marker file into the served www directory once the
+# console is stable again; this watchdog (loaded by the Showroom panel page)
+# polls the marker, probes the console backend favicon (only a real console
+# serves it as an image), and reloads the console tab iframe into a clean
+# session - retrying through outages. Console plugins stay enabled
 # throughout; nothing is disabled.
+#
+# Delivery: the watchdog script is served from a ConfigMap file mount, and a
+# postStart hook re-applies the panel script tag and marker on every
+# container start. The content entrypoint regenerates the served site on
+# each restart, so anything written into www at deploy time would be
+# dropped; the ConfigMap mount and the hook are part of the pod spec and
+# survive every restart. The mount target filename never exists in the
+# content repo, so the entrypoint's site copy never collides with it.
 # ==============================================================================
-- name: Inject console tab reload watchdog into Showroom panel
-  shell: |
-    SCRIPT_B64='{{ lookup("file", role_path ~ "/files/console-reload-watchdog.js") | b64encode }}'
-    oc exec deployment/showroom -n {{ showroom_namespace }} -c content -- sh -c "
-      printf '%s' \"$SCRIPT_B64\" | base64 -d > /showroom/www/console-reload-watchdog.js
-      if ! grep -q console-reload-watchdog.js /showroom/www/index.html; then
-        sed -i 's|</head>|<script src=\"./console-reload-watchdog.js\"></script></head>|' /showroom/www/index.html
-      fi
-      date +%s > /showroom/www/console-reload.marker
-    "
-  register: _ops_retry_days_ops_track_125
+- name: Create console tab reload watchdog ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: console-reload-watchdog
+        namespace: "{{ showroom_namespace }}"
+        labels:
+          app: showroom
+      data:
+        console-reload-watchdog.js: "{{ lookup('file', role_path ~ '/files/console-reload-watchdog.js') }}"
+        console-reload-watchdog-apply.sh: "{{ lookup('file', role_path ~ '/files/console-reload-watchdog-apply.sh') }}"
+
+- name: Patch Showroom deployment with the watchdog ConfigMap mount and postStart hook
+  kubernetes.core.k8s:
+    state: patched
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: showroom
+        namespace: "{{ showroom_namespace }}"
+      spec:
+        template:
+          spec:
+            volumes:
+            - name: console-reload-watchdog
+              configMap:
+                name: console-reload-watchdog
+            containers:
+            - name: content
+              volumeMounts:
+              - name: console-reload-watchdog
+                mountPath: /showroom/www/console-reload-watchdog.js
+                subPath: console-reload-watchdog.js
+              - name: console-reload-watchdog
+                mountPath: /showroom/watchdog-apply.sh
+                subPath: console-reload-watchdog-apply.sh
+              lifecycle:
+                postStart:
+                  exec:
+                    command:
+                    - /bin/sh
+                    - -c
+                    - nohup /bin/sh /showroom/watchdog-apply.sh >/dev/null 2>&1 &
+
+- name: Wait for Showroom deployment to roll out with the watchdog delivery
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    namespace: "{{ showroom_namespace }}"
+    name: showroom
+  register: showroom_deployment_watchdog
   until: >-
-    (_ops_retry_days_ops_track_125 | deliver_openshift_ops_day.automation.ops_permanent_error) or
-    ((_ops_retry_days_ops_track_125 is succeeded) and (_ops_retry_days_ops_track_125 is succeeded))
-  retries: '{{ ops_day_api_retries | default(120) }}'
-  delay: '{{ ops_day_retry_delay | default(10) }}'
+    (showroom_deployment_watchdog | deliver_openshift_ops_day.automation.ops_ready('deployment'))
+  retries: '{{ ops_day_readiness_retries | default(120) }}'
+  delay: 10
 
 - name: DEBUG - Showroom Deployment structure after patching
   shell: |
